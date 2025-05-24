@@ -46,6 +46,7 @@ class BaseScraper:
     def close(self):
         """Close the browser."""
         self.driver.quit()
+        self.db_handler.close()
 
 
 class LinkedInScraper(BaseScraper):
@@ -106,14 +107,21 @@ class LinkedInScraper(BaseScraper):
             # Don't insert jobs that are in database
             current_job_links = self.db_handler.fetch_recent_jobs()
 
-            if type(current_job_links) is None:
-                current_job_links = pd.DataFrame(data={"posting_url": []})
+            if type(current_job_links) is None or current_job_links.shape[0] == 0:
+                current_job_links = pd.DataFrame(data={"posting_url": [],
+                                                       "posting_id": []})
 
             # We need to remove any job links with https://www.linkedin.com/company/
             job_links = [job for job in job_links
                          if "linkedin.com/company/" not in job
-                         #and job not in current_job_links['posting_url']
+                         and job not in current_job_links['posting_url']
                          ]
+
+            # Also check if any of the job ids are present. If so skip them
+            for job_id in current_job_links['posting_id']:
+                for job in job_links:
+                    if job_id in job:
+                        job_links.remove(job)
 
             return job_links
 
@@ -129,6 +137,10 @@ class LinkedInScraper(BaseScraper):
         self.navigate(url)
 
         posting_information = {'posting_url': url}
+
+        # Get the job id
+        pattern = r"-([\d]+)\?"
+        posting_information['job_id'] = int(re.search(pattern, url).group(1))
 
         # Get the title
         title = self.driver.find_element(By.TAG_NAME, 'h1')
@@ -190,8 +202,8 @@ class LinkedInScraper(BaseScraper):
         for landing_page in self.config['LinkedInScraper']['LandingPages']:
             job_set.extend(self.extract_all_for_search(landing_page))
 
-        # Insert into our database
-        self.db_handler.insert_jobs(job_set)
+            # Insert into our database
+            self.db_handler.insert_jobs(job_set)
 
         df = pd.DataFrame(job_set)
         return df

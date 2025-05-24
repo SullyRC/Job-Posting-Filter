@@ -15,6 +15,7 @@ class DataBaseHandler:
         self.cursor.execute("""
                             CREATE TABLE IF NOT EXISTS job_postings (
                                 id INT AUTO_INCREMENT PRIMARY KEY,
+                                posting_id INT UNIQUE,
                                 posting_url VARCHAR(512) UNIQUE,
                                 job_title TEXT,
                                 description TEXT,
@@ -29,12 +30,12 @@ class DataBaseHandler:
     def insert_jobs(self, job_list):
         """Bulk inserts multiple job postings into the database."""
         query = """
-            INSERT INTO job_postings (posting_url, job_title, description,
+            INSERT INTO job_postings (posting_url, job_id, job_title, description,
                                       experience, employment_type, industries)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s,, %s, %s, %s, %s, %s, %s)
             """
         values = [
-            (job["posting_url"], job["job_title"], job["description"], 
+            (job["posting_url"], job["job_id"], job["job_title"], job["description"], 
              job["experience"], job["employment_type"], job["industries"])
             for job in job_list
             ]
