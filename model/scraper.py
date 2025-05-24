@@ -3,10 +3,13 @@ from selenium.common.exceptions import NoSuchElementException, ElementNotInterac
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from DataBaseHandler import DataBaseHandler
 import re
 import time
 import pandas as pd
 import yaml
+import os
+import json
 
 
 
@@ -19,6 +22,9 @@ class BaseScraper:
         options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(service=Service(), options=options)
 
+        database_auth = json.loads(os.environ['DataBaseAuth'])
+        self.db_handler = DataBaseHandler(database_auth)
+
         with open("scraper_config.yaml", 'r') as file:
             self.config = yaml.safe_load(file)
 
@@ -26,7 +32,7 @@ class BaseScraper:
         """Load the webpage."""
         self.driver.get(url)
         self.url = url
-        time.sleep(1)
+        time.sleep(2)
 
     def navigate_landing_page(self, url):
         """Navigate and handle popups from our starting page."""
@@ -80,26 +86,41 @@ class LinkedInScraper(BaseScraper):
         """
         Method for getting the list of hrefs from the job list
         """
-        # Scroll to the bottom of the page
-        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        try:
+            # Scroll to the bottom of the page
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-        # Sleep until we have the load more jobs load
-        time.sleep(5)
+            # Sleep until we have the load more jobs load
+            time.sleep(5)
 
-        # Get the list
-        job_list = self.driver.find_elements(By.CLASS_NAME, "jobs-search__results-list")
+            # Get the list
+            job_list = self.driver.find_elements(By.CLASS_NAME, "jobs-search__results-list")
 
-        # Extract the inner html
-        job_html = job_list[0].get_attribute("innerHTML")
+            # Extract the inner html
+            job_html = job_list[0].get_attribute("innerHTML")
 
-        # Regex search for the hrefs
-        href_pattern = r'href=["\'](.*?)["\']'
-        job_links = re.findall(href_pattern, job_html)
+            # Regex search for the hrefs
+            href_pattern = r'href=["\'](.*?)["\']'
+            job_links = re.findall(href_pattern, job_html)
 
-        # We need to remove any job links with https://www.linkedin.com/company/
-        job_links = [job for job in job_links
-                     if "linkedin.com/company/" not in job]
-        return job_links
+            # Don't insert jobs that are in database
+            current_job_links = self.db_handler.fetch_recent_jobs()
+
+            if type(current_job_links) is None:
+                current_job_links = pd.DataFrame(data={"posting_url": []})
+
+            # We need to remove any job links with https://www.linkedin.com/company/
+            job_links = [job for job in job_links
+                         if "linkedin.com/company/" not in job
+                         #and job not in current_job_links['posting_url']
+                         ]
+
+            return job_links
+
+        except Exception as e:
+            print("Unable to properly fetch job list due to error {}.".format(e),
+                  "\nReturning empty list.")
+            return []
 
     def extract_job_information(self, url):
         """
@@ -169,6 +190,9 @@ class LinkedInScraper(BaseScraper):
         for landing_page in self.config['LinkedInScraper']['LandingPages']:
             job_set.extend(self.extract_all_for_search(landing_page))
 
+        # Insert into our database
+        self.db_handler.insert_jobs(job_set)
+
         df = pd.DataFrame(job_set)
         return df
 
@@ -179,3 +203,5 @@ if __name__ == '__main__':
     scraper.close()
 
     df.to_csv("JobInfo.csv", index = False)
+
+    df['posting_url'].unique()
