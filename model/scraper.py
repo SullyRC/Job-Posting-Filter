@@ -1,8 +1,13 @@
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+import re
 import time
+import pandas as pd
+import yaml
+
 
 
 # Common webscraper functions
@@ -14,14 +19,18 @@ class BaseScraper:
         options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(service=Service(), options=options)
 
+        with open("scraper_config.yaml", 'r') as file:
+            self.config = yaml.safe_load(file)
+
     def navigate(self, url):
         """Load the webpage."""
         self.driver.get(url)
+        self.url = url
+        time.sleep(1)
 
     def navigate_landing_page(self, url):
         """Navigate and handle popups from our starting page."""
         self.navigate(url)
-        time.sleep(2)
         self.handle_landing_popups()
 
     def handle_landing_popups(self):
@@ -39,22 +48,134 @@ class LinkedInScraper(BaseScraper):
         """
         Method for navigating to the search page and handling popups
         """
+
+        # Add extra time to sleep until objects are loaded
+        time.sleep(3)
+
         try:
-            exit_button = scraper.driver.find_element(
-                By.XPATH, "//*[@id=\"base-contextual-sign-in-modal\"]/div/section/button")
-            exit_button.click()
+            # Get our sign in and check if we need to return
+            sign_in = self.driver.find_element(By.ID, "base-contextual-sign-in-modal")
+
+        except NoSuchElementException:
+            # If we have not found this element, then we the sign in is not present
+            return
+
+        if len(sign_in.text) == 0:
+            # We have passed the sign-in
+            return
+
+        # Find our button to exit out of here
+        button = sign_in.find_element(By.XPATH,
+                                      "//*[@data-tracking-control-name="
+                                      "'public_jobs_contextual-sign-in-modal_modal_dismiss']")
+
+        try:
+            button.click()
         except ElementNotInteractableException:
-            print("Element was not found! Landing page might already be passd.")
+            print("Could not close popup. Continuing either way.")
 
-    def extract_jobs(self):
-        job_elements = self.driver.find_elements(By.CLASS_NAME, "job-search__results-list")
-        return [job.text for job in job_elements]
+        return
 
-url = 'https://www.linkedin.com/jobs/search/?currentJobId=4236125446&f_TPR=r86400&geoId=102264677&keywords=data%20scientist&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true'
+    def extract_jobs_list(self):
+        """
+        Method for getting the list of hrefs from the job list
+        """
+        # Scroll to the bottom of the page
+        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        # Sleep until we have the load more jobs load
+        time.sleep(5)
+
+        # Get the list
+        job_list = self.driver.find_elements(By.CLASS_NAME, "jobs-search__results-list")
+
+        # Extract the inner html
+        job_html = job_list[0].get_attribute("innerHTML")
+
+        # Regex search for the hrefs
+        href_pattern = r'href=["\'](.*?)["\']'
+        job_links = re.findall(href_pattern, job_html)
+
+        # We need to remove any job links with https://www.linkedin.com/company/
+        job_links = [job for job in job_links
+                     if "linkedin.com/company/" not in job]
+        return job_links
+
+    def extract_job_information(self, url):
+        """
+        Navigate and extract relevant information out of the job posting
+        """
+        self.navigate(url)
+
+        posting_information = {'posting_url': url}
+
+        # Get the title
+        title = self.driver.find_element(By.TAG_NAME, 'h1')
+
+        # This will occur if we've hit an auth issue
+        if title.text == 'Join LinkedIn':
+            posting_information.update(
+                {'job_title': None,
+                 'description': None,
+                 'experience': None,
+                 'employment_type': None,
+                 'industries': None
+                 })
+            return posting_information
+        posting_information['job_title'] = title.text
+
+        # Get the description of the posting
+        posting_description = self.driver.find_element(By.CLASS_NAME,
+                                                       "decorated-job-posting__details")
+        posting_information['description'] = posting_description.text
+
+        # Get the job tags
+        tags = self.driver.find_element(By.CLASS_NAME,
+                                        "description__job-criteria-list")
+
+        # need to do some handling on this
+        tags = tags.text
+        experience = re.search("Seniority level\n(.*?)\nEmployment",
+                               tags, re.DOTALL)
+        posting_information['experience'] = experience.group(1) if experience else None
+        employment_type = re.search("Employment type\n(.*?)\nJob function",
+                                    tags, re.DOTALL)
+        posting_information['employment_type'] = employment_type.group(1) if employment_type else None
+        industries = re.search("Industries\n(.*?)",
+                               tags, re.DOTALL)
+        posting_information['industries'] = industries.group(1) if industries else None
+        return posting_information
+
+    def extract_all_for_search(self, landing_url):
+        """
+        Load and parse information from all jobs listed
+        """
+        self.navigate_landing_page(landing_url)
+
+        # Get our job links
+        links = self.extract_jobs_list()
+
+        # Get our information
+        job_set = [self.extract_job_information(job) for job in links]
+
+        return job_set
+
+    def parse_all_searches(self):
+        """
+        Parse all landing pages for linkedin in the config
+        """
+        job_set = []
+
+        for landing_page in self.config['LinkedInScraper']['LandingPages']:
+            job_set.extend(self.extract_all_for_search(landing_page))
+
+        df = pd.DataFrame(job_set)
+        return df
+
 if __name__ == '__main__':
     scraper = LinkedInScraper()
-    scraper.navigate_landing_page(url)
 
-    job_list = scraper.extract_jobs()
+    df = scraper.parse_all_searches()
+    scraper.close()
 
-    #scraper.close()
+    df.to_csv("JobInfo.csv", index = False)
