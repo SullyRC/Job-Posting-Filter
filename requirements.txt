@@ -13,7 +13,8 @@ SQLAlchemy==2.0.41
 # AI model inference
 transformers
 accelerate==0.27.2
-bitsandbytes==0.42.0
+git+https://github.com/bitsandbytes-foundation/bitsandbytes.git
+#flash-attn==2.7.3
 
 # Also run the following
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

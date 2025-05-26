@@ -22,7 +22,7 @@ class BaseScraper:
         self.driver = webdriver.Chrome(service=Service(), options=options)
         self.db_handler = db_handler
 
-        self.config = config['scraper_config']
+        self.config = config
 
     def navigate(self, url):
         """Load the webpage."""
@@ -129,50 +129,54 @@ class LinkedInScraper(BaseScraper):
         """
         Navigate and extract relevant information out of the job posting
         """
-        self.navigate(url)
+        try:
+            self.navigate(url)
 
-        posting_information = {'posting_url': url}
+            posting_information = {'posting_url': url}
 
-        # Get the job id
-        pattern = r"-([\d]+)\?"
-        posting_information['posting_id'] = re.search(pattern, url).group(1)
+            # Get the job id
+            pattern = r"-([\d]+)\?"
+            posting_information['posting_id'] = re.search(pattern, url).group(1)
 
-        # Get the title
-        title = self.driver.find_element(By.TAG_NAME, 'h1')
+            # Get the title
+            title = self.driver.find_element(By.TAG_NAME, 'h1')
 
-        # This will occur if we've hit an auth issue
-        if title.text == 'Join LinkedIn':
-            posting_information.update(
-                {'job_title': None,
-                 'description': None,
-                 'experience': None,
-                 'employment_type': None,
-                 'industries': None
-                 })
-            return posting_information
-        posting_information['job_title'] = title.text
+            # This will occur if we've hit an auth issue
+            if title.text == 'Join LinkedIn':
+                posting_information.update(
+                    {'job_title': None,
+                     'description': None,
+                     'experience': None,
+                     'employment_type': None,
+                     'industries': None
+                     })
+                return posting_information
+            posting_information['job_title'] = title.text
 
-        # Get the description of the posting
-        posting_description = self.driver.find_element(By.CLASS_NAME,
-                                                       "decorated-job-posting__details")
-        posting_information['description'] = posting_description.text
+            # Get the description of the posting
+            posting_description = self.driver.find_element(By.CLASS_NAME,
+                                                           "decorated-job-posting__details")
+            posting_information['description'] = posting_description.text
 
-        # Get the job tags
-        tags = self.driver.find_element(By.CLASS_NAME,
-                                        "description__job-criteria-list")
+            # Get the job tags
+            tags = self.driver.find_element(By.CLASS_NAME,
+                                            "description__job-criteria-list")
 
-        # Need to do some handling on these tags to extract information
-        tags = tags.text
-        experience = re.search("Seniority level\n(.*?)\nEmployment",
-                               tags, re.DOTALL)
-        posting_information['experience'] = experience.group(1) if experience else None
-        employment_type = re.search("Employment type\n(.*?)\nJob function",
-                                    tags, re.DOTALL)
-        posting_information['employment_type'] = employment_type.group(1) if employment_type \
-            else None
-        industries = re.search("Industries\n(.*?)",
-                               tags, re.DOTALL)
-        posting_information['industries'] = industries.group(1) if industries else None
+            # Need to do some handling on these tags to extract information
+            tags = tags.text
+            experience = re.search("Seniority level\n(.*?)\nEmployment",
+                                   tags, re.DOTALL)
+            posting_information['experience'] = experience.group(1) if experience else None
+            employment_type = re.search("Employment type\n(.*?)\nJob function",
+                                        tags, re.DOTALL)
+            posting_information['employment_type'] = employment_type.group(1) if employment_type \
+                else None
+            industries = re.search("Industries\n(.*?)",
+                                   tags, re.DOTALL)
+            posting_information['industries'] = industries.group(1) if industries else None
+        except Exception as e:
+            posting_information = {'posting_url': url,
+                                   'posting_id': None}
         return posting_information
 
     def extract_all_for_search(self, landing_url):
@@ -195,7 +199,7 @@ class LinkedInScraper(BaseScraper):
         """
         job_set = []
 
-        for landing_page in self.config['LinkedInScraper']['LandingPages']:
+        for landing_page in self.config['LandingPages']:
             job_set.extend(self.extract_all_for_search(landing_page))
 
             # Insert into our database
@@ -206,9 +210,12 @@ class LinkedInScraper(BaseScraper):
 
 
 if __name__ == '__main__':
+    from main import load_config
+    config = load_config('../config.yaml')['scraper_config']['classes']['LinkedInScraper']
     scraper = LinkedInScraper(
         DataBaseHandler(json.loads(
-            os.environ['DataBaseAuth']))
+            os.environ['DataBaseAuth'])),
+        config=config
     )
 
     df = scraper.parse_all_searches()

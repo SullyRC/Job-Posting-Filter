@@ -1,12 +1,13 @@
+import gc
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import os
 import time
 import re
 
 
 class AgentInference:
-    def __init__(self, model_name="meta-llama/Llama-3.2-1B-Instruct", model_dir="llms"):
+    def __init__(self, model_name="google/gemma-2-2b-it", model_dir="llms"):
         """
         Initializes the LLM inference model.
         :param model_name: Hugging Face model identifier.
@@ -14,57 +15,84 @@ class AgentInference:
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_dir = model_dir
+        self.model_name = model_name
 
         # Ensure the local model directory exists
         os.makedirs(self.model_dir, exist_ok=True)
+
+        model_specific_kwargs = {
+            'torch_dtype': torch.float16,
+            'device_map': 'auto',
+            'cache_dir': self.model_dir
+        }
+        if 'gemma' in model_name.lower():
+            model_specific_kwargs['quantization_config'] = BitsAndBytesConfig(load_in_8bit=True)
+            del model_specific_kwargs['torch_dtype']
 
         # Load tokenizer and model, ensuring they are stored locally
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=self.model_dir)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            cache_dir=self.model_dir
+            **model_specific_kwargs
         )
-
-        self.model = torch.compile(self.model)
 
     def generate_response(self, prompt, max_tokens=200):
         """
-        Generates a response from the model.
+        Generates a deterministic response from the Gemma 2B model.
         :param prompt: Input text prompt.
         :param max_tokens: Maximum token length for response.
         :return: Decoded response string.
         """
-        inputs = self.tokenizer(prompt, return_tensors="pt")
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
 
-        outputs = self.model.generate(**inputs, max_new_tokens=max_tokens,
-                                      do_sample=False, use_cache=True)
-        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        outputs = self.model.generate(
+            **inputs,
+            max_new_tokens=max_tokens,
+            do_sample=False,  # Disable randomness
+            temperature=0,  # Set temperature to zero for determinism
+            top_p=1,  # Consider all tokens equally
+            top_k=0,  # Allow unrestricted selection of best token
+            use_cache=True
+        )
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        # Free memory from generated responses
+        del inputs, outputs
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        return response
 
     def format_prompt(self, instructions_prompt, data_prompt):
         """
-        Formats system prompt and user prompt to match the format expected of llama model.
+        Formats system prompt and user prompt based on whether the model is Gemma or Llama.
         """
-        instructions_prompt_fmt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>" \
-            + instructions_prompt + "<|eot_id|>"
+        if "gemma" in self.model_name.lower():  # Gemma-specific format
+            instructions_prompt_fmt = f"<system>{instructions_prompt}</system>"
+            data_prompt_fmt = f"<user>[Description]{data_prompt}[EndDescription]</user><assistant>"
 
-        data_prompt_fmt = "<|start_header_id|>user<|end_header_id|>[Description]" + data_prompt \
-            + "[EndDescription]<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        elif "llama" in self.model_name.lower():  # Llama-specific format
+            instructions_prompt_fmt = "<bos><start_of_turn>user" + \
+                instructions_prompt
+            data_prompt_fmt = "[Description]" + data_prompt + \
+                "[EndDescription]<end_of_turn>\n<start_of_turn>model"
 
-        combined_prompt = instructions_prompt_fmt + data_prompt_fmt
+        else:
+            raise ValueError(
+                "Unsupported model type. Ensure you're using a recognized Gemma or Llama model.")
 
-        return combined_prompt
+        return instructions_prompt_fmt + data_prompt_fmt
 
     def generate_with_instructions(self, instructions_prompt, data_prompt, max_tokens=200):
         """Generate response based off sytem prompt instructions and user data"""
         combined_prompt = self.format_prompt(instructions_prompt, data_prompt)
         response = self.generate_response(combined_prompt, max_tokens)
 
-        # Regex our response to be short
-        response = re.search(r"\[EndDescription\]assistant([\s\S]*)", response
-                             ).group(1).replace("\n", '')
+        if "llama" in self.model_name.lower():
+            # Regex our response to be short
+            response = re.search(r"\[EndDescription\]assistant([\s\S]*)", response
+                                 ).group(1).replace("\n", '')
+
         return response
 
 

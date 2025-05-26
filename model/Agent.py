@@ -5,7 +5,7 @@ from model.AgentInference import AgentInference  # Assuming AgentInference is de
 
 
 class Agent:
-    def __init__(self, config_path="agent_config.yaml", prompt_dir="prompts"):
+    def __init__(self, config_path="agent_config.yaml", prompt_dir="model\prompts"):
         """
         Initializes the Agent by loading configurations and preparing inference.
         :param config_path: Path to the YAML configuration file.
