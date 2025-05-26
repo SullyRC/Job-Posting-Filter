@@ -1,0 +1,8 @@
+Agent_questions:
+    
+  'How many years of required experience?':
+      prompt_id: years_experience
+      return_payload:
+        response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+        explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+      

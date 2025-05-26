@@ -15,15 +15,14 @@ import json
 # Common webscraper functions
 class BaseScraper:
 
-    def __init__(self, db_handler: DataBaseHandler):
+    def __init__(self, db_handler: DataBaseHandler, config: dict):
         options = Options()
         # options.add_argument("--headless")  # Run without UI
         options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(service=Service(), options=options)
         self.db_handler = db_handler
 
-        with open("scraper_config.yaml", 'r') as file:
-            self.config = yaml.safe_load(file)
+        self.config = config['scraper_config']
 
     def navigate(self, url):
         """Load the webpage."""

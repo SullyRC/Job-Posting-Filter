@@ -24,6 +24,7 @@ class DataBaseHandler:
                                 experience TEXT,
                                 employment_type TEXT,
                                 industries TEXT,
+                                agent_response JSON, 
                                 insert_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                                 )
                             """)
@@ -65,3 +66,34 @@ class DataBaseHandler:
         query = f"SELECT * FROM job_postings WHERE insert_timestamp >= NOW() - INTERVAL {days} DAY"
         self.cursor.execute(query)
         return pd.DataFrame(self.cursor.fetchall())
+
+    def fetch_unprocessed_jobs(self):
+        """Fetches job postings where description exists but agent_response is NULL."""
+        query = """
+        SELECT id, description FROM job_postings
+        WHERE description IS NOT NULL AND agent_response IS NULL
+        """
+        self.cursor.execute(query)
+        return pd.DataFrame(self.cursor.fetchall())
+
+    def update_agent_responses(self, response_dict):
+        """
+        Updates agent_response for given job_posting IDs.
+
+        :param response_dict: Dictionary containing lists of 'id' and 'agent_response'.
+        """
+        query = """
+            UPDATE job_postings
+            SET agent_response = %s
+            WHERE id = %s
+            """
+
+        values = list(zip(response_dict["agent_response"], response_dict["id"]))
+
+        try:
+            self.cursor.executemany(query, values)
+            self.conn.commit()
+        except mysql.connector.Error as e:
+            print("Error updating agent responses:", e)
+
+        return

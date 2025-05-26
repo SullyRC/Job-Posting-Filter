@@ -2,10 +2,11 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import os
 import time
+import re
 
 
 class AgentInference:
-    def __init__(self, model_name="meta-llama/Llama-3.2-2B-Instruct", model_dir="llms"):
+    def __init__(self, model_name="meta-llama/Llama-3.2-1B-Instruct", model_dir="llms"):
         """
         Initializes the LLM inference model.
         :param model_name: Hugging Face model identifier.
@@ -42,37 +43,41 @@ class AgentInference:
                                       do_sample=False, use_cache=True)
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    def format_prompt(self, system_prompt, user_prompt):
+    def format_prompt(self, instructions_prompt, data_prompt):
         """
         Formats system prompt and user prompt to match the format expected of llama model.
         """
-        system_prompt_fmt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>" \
-            + system_prompt + "<|eot_id|>"
+        instructions_prompt_fmt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>" \
+            + instructions_prompt + "<|eot_id|>"
 
-        user_prompt_fmt = "<|start_header_id|>user<|end_header_id|>[Description]" + user_prompt \
+        data_prompt_fmt = "<|start_header_id|>user<|end_header_id|>[Description]" + data_prompt \
             + "[EndDescription]<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
 
-        combined_prompt = system_prompt_fmt + user_prompt_fmt
+        combined_prompt = instructions_prompt_fmt + data_prompt_fmt
 
         return combined_prompt
 
-    def generate_with_instructions(self, system_prompt, user_prompt, max_tokens=200):
+    def generate_with_instructions(self, instructions_prompt, data_prompt, max_tokens=200):
         """Generate response based off sytem prompt instructions and user data"""
-        combined_prompt = self.format_prompt(system_prompt, user_prompt)
+        combined_prompt = self.format_prompt(instructions_prompt, data_prompt)
         response = self.generate_response(combined_prompt, max_tokens)
+
+        # Regex our response to be short
+        response = re.search(r"\[EndDescription\]assistant([\s\S]*)", response
+                             ).group(1).replace("\n", '')
         return response
 
 
 if __name__ == "__main__":
-    system_prompt = """
+    instructions_prompt = """
         You are an expert in analyzing resumes. Your job is to determine the the required years of experience from a job description.
-        Return only the minimum years of required experience. If there is no mention of years of experience in the description, response "Unsure".
+        If there is no mention of years of experience in the description, response "Unsure". Do not use the examples as indication of the years of experience, only as how to find the mentioned years of experience in the description.
         Below are several examples of what you should do. You are to respond in the format given.
 
         [Example]
-        [Description] As a software engineer with 3-5 years of development experience[EndDescription]
+        [Description] As someone with 3-5 years of development experience[EndDescription]
         [Response] 3 years [EndResponse]
-        [Explanation] It is mentioned in the descriptiont that the software engineer is expected to have 3 years of experience.[EndExplanation]
+        [Explanation] It is mentioned in the description that the candiate is expected to have 3 years of experience.[EndExplanation]
         [EndExample]
 
         [Example]
@@ -84,13 +89,13 @@ if __name__ == "__main__":
         [Example]
         [Description]As a historian your job is to keep the books[EndDescription]
         [Response] Unsure [EndResponse]
-        [Explanation] There is no mention of years in this description, therefore I am unsure.
+        [Explanation] There is no mention of years in this description, therefore I am unsure.[EndExplanation]
         [EndExample]
 
-        Using the description from the user input, return how many years of experience are required. In the format of [Response] years of experience [EndResponse]
+        Using the description from the user input, return how many years of experience are required. In the format of [Response] years of experience [EndResponse] [Explanation] explanation [EndExplanation]
         """
 
-    user_prompt = """'Are you looking for more? Find it here. At Wells Fargo, we believe that a meaningful career is much more than just a job. It''s about finding all the elements that help you thrive, in one place. means you''re supported in life, not just work. It means having a competitive salary, a robust benefits package, and programs to support your work-life balance and well-being. It means being rewarded for investing in your community, celebrated for being your authentic self, and empowered to grow. And we''re recognized for it! Wells Fargo ranked in the top three on the 2024 LinkedIn Top Companies List of best workplaces "to grow your career" in the U.S.
+    data_prompt = """'Are you looking for more? Find it here. At Wells Fargo, we believe that a meaningful career is much more than just a job. It''s about finding all the elements that help you thrive, in one place. means you''re supported in life, not just work. It means having a competitive salary, a robust benefits package, and programs to support your work-life balance and well-being. It means being rewarded for investing in your community, celebrated for being your authentic self, and empowered to grow. And we''re recognized for it! Wells Fargo ranked in the top three on the 2024 LinkedIn Top Companies List of best workplaces "to grow your career" in the U.S.
 
 Learn more about the career areas and business divisions at wellsfargojobs.com.
 
@@ -136,7 +141,7 @@ See who you know'
     inference = AgentInference()
 
     start = time.time()
-    response = inference.generate_with_instructions(system_prompt, user_prompt)
+    response = inference.generate_with_instructions(instructions_prompt, data_prompt)
     end = time.time()
     print(response)
 
