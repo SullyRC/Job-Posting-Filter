@@ -1,6 +1,19 @@
+# Data processing
 pandas==2.2.3
 numpy==2.2.6
+
+# Web scraping & automation
 selenium==4.31
 PyYAML==6.0.2
+
+# Database handling
 mysql-connector-python==9.3.0
 SQLAlchemy==2.0.41
+
+# AI model inference
+transformers
+accelerate==0.27.2
+bitsandbytes==0.42.0
+
+# Also run the following
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

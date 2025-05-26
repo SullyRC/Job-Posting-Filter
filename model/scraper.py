@@ -3,7 +3,7 @@ from selenium.common.exceptions import NoSuchElementException, ElementNotInterac
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from DataBaseHandler import DataBaseHandler
+from model.DataBaseHandler import DataBaseHandler
 import re
 import time
 import pandas as pd
@@ -12,18 +12,15 @@ import os
 import json
 
 
-
 # Common webscraper functions
 class BaseScraper:
 
-    def __init__(self):
+    def __init__(self, db_handler: DataBaseHandler):
         options = Options()
         # options.add_argument("--headless")  # Run without UI
         options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(service=Service(), options=options)
-
-        database_auth = json.loads(os.environ['DataBaseAuth'])
-        self.db_handler = DataBaseHandler(database_auth)
+        self.db_handler = db_handler
 
         with open("scraper_config.yaml", 'r') as file:
             self.config = yaml.safe_load(file)
@@ -32,7 +29,7 @@ class BaseScraper:
         """Load the webpage."""
         self.driver.get(url)
         self.url = url
-        time.sleep(2)
+        time.sleep(3)
 
     def navigate_landing_page(self, url):
         """Navigate and handle popups from our starting page."""
@@ -46,7 +43,6 @@ class BaseScraper:
     def close(self):
         """Close the browser."""
         self.driver.quit()
-        self.db_handler.close()
 
 
 class LinkedInScraper(BaseScraper):
@@ -140,7 +136,7 @@ class LinkedInScraper(BaseScraper):
 
         # Get the job id
         pattern = r"-([\d]+)\?"
-        posting_information['job_id'] = int(re.search(pattern, url).group(1))
+        posting_information['posting_id'] = re.search(pattern, url).group(1)
 
         # Get the title
         title = self.driver.find_element(By.TAG_NAME, 'h1')
@@ -166,14 +162,15 @@ class LinkedInScraper(BaseScraper):
         tags = self.driver.find_element(By.CLASS_NAME,
                                         "description__job-criteria-list")
 
-        # need to do some handling on this
+        # Need to do some handling on these tags to extract information
         tags = tags.text
         experience = re.search("Seniority level\n(.*?)\nEmployment",
                                tags, re.DOTALL)
         posting_information['experience'] = experience.group(1) if experience else None
         employment_type = re.search("Employment type\n(.*?)\nJob function",
                                     tags, re.DOTALL)
-        posting_information['employment_type'] = employment_type.group(1) if employment_type else None
+        posting_information['employment_type'] = employment_type.group(1) if employment_type \
+            else None
         industries = re.search("Industries\n(.*?)",
                                tags, re.DOTALL)
         posting_information['industries'] = industries.group(1) if industries else None
@@ -208,12 +205,12 @@ class LinkedInScraper(BaseScraper):
         df = pd.DataFrame(job_set)
         return df
 
+
 if __name__ == '__main__':
-    scraper = LinkedInScraper()
+    scraper = LinkedInScraper(
+        DataBaseHandler(json.loads(
+            os.environ['DataBaseAuth']))
+    )
 
     df = scraper.parse_all_searches()
     scraper.close()
-
-    df.to_csv("JobInfo.csv", index = False)
-
-    df['posting_url'].unique()

@@ -1,21 +1,23 @@
 import mysql.connector
 import pandas as pd
 
+
 class DataBaseHandler:
     def __init__(self, sql_auth):
         """Initialize database connection."""
         self.conn = mysql.connector.connect(
             **sql_auth
         )
-        self.cursor = self.conn.cursor(dictionary=True)  # Enables returning dict-based query results
-        self.create_table()
+        # Enables returning dict-based query results
+        self.cursor = self.conn.cursor(dictionary=True)
+        self.create_tables()
 
-    def create_table(self):
+    def create_tables(self):
         """Creates the job postings table with an insert timestamp."""
         self.cursor.execute("""
                             CREATE TABLE IF NOT EXISTS job_postings (
                                 id INT AUTO_INCREMENT PRIMARY KEY,
-                                posting_id INT UNIQUE,
+                                posting_id VARCHAR(100) UNIQUE,
                                 posting_url VARCHAR(512) UNIQUE,
                                 job_title TEXT,
                                 description TEXT,
@@ -29,16 +31,18 @@ class DataBaseHandler:
 
     def insert_jobs(self, job_list):
         """Bulk inserts multiple job postings into the database."""
-        query = """
-            INSERT INTO job_postings (posting_url, job_id, job_title, description,
-                                      experience, employment_type, industries)
-            VALUES (%s,, %s, %s, %s, %s, %s, %s)
-            """
+        query = """INSERT INTO job_postings (posting_url, posting_id, job_title, description,
+                                    experience, employment_type, industries)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           ON DUPLICATE KEY UPDATE
+           job_title=VALUES(job_title), description=VALUES(description),
+           experience=VALUES(experience), employment_type=VALUES(employment_type),
+           industries=VALUES(industries)"""
         values = [
-            (job["posting_url"], job["job_id"], job["job_title"], job["description"], 
+            (job["posting_url"], job["posting_id"], job["job_title"], job["description"],
              job["experience"], job["employment_type"], job["industries"])
             for job in job_list
-            ]
+        ]
 
         try:
             self.cursor.executemany(query, values)
