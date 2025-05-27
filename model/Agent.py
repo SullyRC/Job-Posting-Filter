@@ -5,7 +5,7 @@ from model.AgentInference import AgentInference  # Assuming AgentInference is de
 
 
 class Agent:
-    def __init__(self, config_path="agent_config.yaml", prompt_dir="model\prompts"):
+    def __init__(self, config_path="agent_config.yaml", prompt_dir="model/prompts"):
         """
         Initializes the Agent by loading configurations and preparing inference.
         :param config_path: Path to the YAML configuration file.
@@ -17,6 +17,7 @@ class Agent:
 
         # Load YAML configuration
         self.config = self._load_agent_config()
+        self.root_node = self.config["root_node"]
 
     def _load_agent_config(self):
         """Loads the agent's YAML configuration file."""
@@ -40,17 +41,86 @@ class Agent:
             extracted_data[key] = match.group(1) if match else None
         return extracted_data
 
+    def check_black_list(self, current_question: str, question_data: dict, results: dict, description: str):
+        """
+        Function to check if the company is on the blacklist.
+        :param current_question: Current question being evaluated.
+        :param question_data: Config details for this question.
+        :param results: Dictionary storing responses.
+        :param description: The job description being analyzed.
+        :return: 'Yes' if blacklisted, 'No' otherwise.
+        """
+        blacklist = question_data.get("blacklist", [])
+
+        # Loop through blacklist to find a match in the job description
+        response_text = "No"
+        matched_company = None
+
+        for company in blacklist:
+            if company.lower() in description.lower():  # Case-insensitive match
+                response_text = "Yes"
+                matched_company = company
+                break  # Stop looping as soon as we find a match
+
+        # Store results
+        results[current_question] = {
+            "response": response_text,
+            "explanation": f"The company '{matched_company}' is on the blacklist."
+            if matched_company else
+            "No blacklisted companies found in the description."
+        }
+
+        return response_text
+
+    def query_llm(self, current_question: str, question_data: dict,
+                  results: dict, description: str):
+        """Function for querying the llm for response"""
+        prompt_id = question_data.get("prompt", question_data.get("prompt_id"))
+        instruction_text = self._load_prompt(prompt_id)
+
+        llm_response = self.agent_inference.generate_with_instructions(
+            instruction_text, description)
+        parsed_data = self._extract_data(llm_response, question_data["return_payload"])
+
+        # Store results
+        results[current_question] = parsed_data
+
+        # Determine next question based on response
+        response_text = parsed_data.get("response", "").strip()
+
+        return response_text
+
     def ask_questions(self, description: str):
-        """Processes configured questions and extracts LLM responses."""
+        """Traverses the decision tree, asking structured questions based on responses."""
         results = {}
+        current_question = self.root_node  # Start from root node
 
-        for question, question_data in self.config["Agent_questions"].items():
-            instruction_text = self._load_prompt(question_data["prompt_id"])
-            llm_response = self.agent_inference.generate_with_instructions(instruction_text,
-                                                                           description)
+        while current_question:
+            print(current_question)
+            question_data = self.config["Agent_questions"].get(current_question)
 
-            parsed_data = self._extract_data(llm_response, question_data["return_payload"])
-            results[question] = parsed_data
+            if not question_data:
+                print(f"Error: Question '{current_question}' is missing in config.")
+                break
+
+            method_name = question_data['function']
+            function_ref = getattr(self, method_name, None)  # Get method reference
+
+            if function_ref and callable(function_ref):  # Ensure it's a valid method
+                response_text = function_ref(current_question, question_data, results, description)
+            else:
+                raise ValueError(f"Error: Function '{method_name}' not found or not callable.")
+
+            # output our response
+            print(response_text)
+
+            # Get our next question if we have one
+            next_question = question_data.get("children", {}).get(response_text)
+
+            if not next_question:
+                break  # Stop traversing if there's no child for the given response
+
+            current_question = next_question  # Move to next node in the tree
 
         return results
 
@@ -66,3 +136,6 @@ if __name__ == "__main__":
         print(f"🔹 {question}")
         print(f"  - Response: {data['response']}")
         print(f"  - Explanation: {data['explanation']}")
+
+    agent.prompt_dir = 'prompts'
+    agent.config = agent._load_agent_config()

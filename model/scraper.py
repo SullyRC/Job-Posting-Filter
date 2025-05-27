@@ -17,7 +17,7 @@ class BaseScraper:
 
     def __init__(self, db_handler: DataBaseHandler, config: dict):
         options = Options()
-        # options.add_argument("--headless")  # Run without UI
+        options.add_argument("--headless")  # Run without UI
         options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(service=Service(), options=options)
         self.db_handler = db_handler
@@ -108,7 +108,7 @@ class LinkedInScraper(BaseScraper):
 
             # We need to remove any job links with https://www.linkedin.com/company/
             job_links = [job for job in job_links
-                         if "linkedin.com/company/" not in job
+                         if "jobs/view" in job
                          and job not in current_job_links['posting_url']
                          ]
 
@@ -176,7 +176,14 @@ class LinkedInScraper(BaseScraper):
             posting_information['industries'] = industries.group(1) if industries else None
         except Exception as e:
             posting_information = {'posting_url': url,
-                                   'posting_id': None}
+                                   'posting_id': None,
+                                   'job_title': None,
+                                   'description': None,
+                                   'experience': None,
+                                   'employment_type': None,
+                                   'industries': None
+                                   }
+
         return posting_information
 
     def extract_all_for_search(self, landing_url):

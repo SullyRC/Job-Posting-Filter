@@ -26,18 +26,12 @@ schedule:
   0:
     - run_scrapers
     - process_unprocessed_jobs
-  10:
-    - run_scrapers
-    - process_unprocessed_jobs
-  20:
+  15:
     - run_scrapers
     - process_unprocessed_jobs
   30:
     - run_scrapers
     - process_unprocessed_jobs
-  40:
-    - run_scrapers
-    - process_unprocessed_jobs
-  50:
+  45:
     - run_scrapers
     - process_unprocessed_jobs

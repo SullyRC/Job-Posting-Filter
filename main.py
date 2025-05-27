@@ -8,6 +8,7 @@ import numpy as np
 import datetime
 import os
 import time
+import sys
 
 
 def load_config(config_path="config.yaml"):
@@ -58,27 +59,35 @@ def process_unprocessed_jobs(agent: Agent, db_handler: DataBaseHandler):
     Fetches all unprocessed job descriptions and evaluates them using the agent.
     Updates agent_response in the database.
     """
-    # Fetch job postings where description exists but agent_response is NULL
     jobs_df = db_handler.fetch_unprocessed_jobs()
-
     if jobs_df.empty:
         print("No unprocessed jobs found.")
         return
 
-    # Process each job description using the agent
     response_dict = {"id": [], "agent_response": []}
 
-    for _, row in jobs_df.iterrows():
-        job_id = row["id"]
-        description = row["description"]
+    # Get unique descriptions to avoid redundant processing
+    unique_descriptions = jobs_df['description'].unique()
+    agent_responses = {}
 
-        print(f"Processing Job ID: {job_id}")
+    for idx, description in enumerate(unique_descriptions):
+        # Live progress update using `sys.stdout.write()`
+        progress = f"\rProcessing {idx + 1}/{len(unique_descriptions)} descriptions..."
+        sys.stdout.write(progress)
+        sys.stdout.flush()
+
         response = agent.ask_questions(description)
+        agent_responses[description] = json.dumps(response)
 
-        response_dict["id"].append(job_id)
-        response_dict["agent_response"].append(json.dumps(response))  # Store as JSON
+    print("\nProcessing complete!")
 
-    # Update database with processed agent responses
+    # Merge responses back with job postings
+    jobs_df["agent_response"] = jobs_df["description"].map(agent_responses)
+
+    # Prepare data for database update
+    response_dict["id"] = jobs_df["id"].tolist()
+    response_dict["agent_response"] = jobs_df["agent_response"].tolist()
+
     db_handler.update_agent_responses(response_dict)
     print("Successfully updated agent responses in the database.")
 
@@ -89,8 +98,7 @@ def main():
         return
 
     # Initialize components with config if necessary
-    db_handler = DataBaseHandler(json.loads(
-        os.environ['DataBaseAuth']))
+    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')))
 
     description_eval = Agent('model/agent_config.yaml',
                              'model/prompts')

@@ -1,8 +1,28 @@
+root_node: 'Is this company on the black list?'
+
 Agent_questions:
-    
+
+  'Is this company on the black list?':
+      function: check_black_list
+      blacklist:
+        - Lensa
+      children:
+        'No': 'Is there required skillset present?'
+  
+  'Is there required skillset present?':
+     function: query_llm
+     prompt: skillset
+     return_payload:
+       response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+       explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+     children:
+       'Yes': 'How many years of required experience?'
+       'Unsure': 'How many years of required experience?'
+  
   'How many years of required experience?':
-      prompt_id: years_experience
-      return_payload:
-        response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
-        explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+     function: query_llm
+     prompt_id: years_experience
+     return_payload:
+       response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+       explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
       

@@ -25,7 +25,7 @@ class AgentInference:
             'device_map': 'auto',
             'cache_dir': self.model_dir
         }
-        if 'gemma' in model_name.lower():
+        if True:  # 'gemma' in model_name.lower():
             model_specific_kwargs['quantization_config'] = BitsAndBytesConfig(load_in_8bit=True)
             del model_specific_kwargs['torch_dtype']
 

@@ -4,7 +4,7 @@ Below are several examples of what you should do. You are to respond in the form
 [Example]
 [Description] As someone with 3-5 years of development experience[EndDescription]
 [Response] 3 years [EndResponse]
-[Explanation] It is mentioned in the description that the candiate is expected to have 3 years of experience.[EndExplanation]
+[Explanation] It is mentioned in the description that the candidate is expected to have 3 years of experience.[EndExplanation]
 [EndExample]
 
 [Example]
@@ -19,4 +19,4 @@ Below are several examples of what you should do. You are to respond in the form
 [Explanation] There is no mention of years in this description, therefore I am unsure.[EndExplanation]
 [EndExample]
 
-Using the description from the user input, return how many years of experience are required. In the format of [Response] years of experience [EndResponse] [Explanation] explanation [EndExplanation]
+Using the description from the user input, return how many years of experience are required. In the format of [Response] years of experience [EndResponse] [Explanation] explanation [EndExplanation].
