@@ -11,10 +11,11 @@ This tool scrapes job postings, analyzes their relevance using AI, and provides 
 - Job Application Tracker – Mark jobs as applied and update statuses dynamically
 - Click-to-Apply Functionality – Open job postings directly from the UI
 
-Repository Structure
+## Repository Structure
 - main – Orchestrates scraping and job evaluation logic
 - config – Defines runtime behavior (which functions to run and their parameters)
 - streamlit-dash – Streamlit dashboard for tracking job postings
+
 Model Directory
 - model/AgentInference – LLM inference functions for evaluating job descriptions
 - model/Agent – Processes job data, populating agent_response in the database
