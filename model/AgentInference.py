@@ -90,9 +90,21 @@ class AgentInference:
 
         if "llama" in self.model_name.lower():
             # Regex our response to be short
-            response = re.search(r"\[EndDescription\]assistant([\s\S]*)", response
-                                 ).group(1).replace("\n", '')
+            match = re.search(r"\[EndDescription\]assistant([\s\S]*)", response
+                              )
 
+        elif "gemma" in self.model_name.lower():
+            match = re.search(r"</user><assistant>([\s\S]*)", response
+                              )
+
+        else:
+            raise ValueError(
+                "Unsupported model type. Ensure you're using a recognized Gemma or Llama model.")
+
+        if match:
+            response = match.group(1).replace("/n", '')
+        else:
+            response = "Error. Could not properly regex prompt."
         return response
 
 
@@ -174,3 +186,6 @@ See who you know'
     print(response)
 
     print(f'\n\nTotal inference time: {end-start:.3f} seconds')
+
+    new_response = re.search(r"</user><assistant>([\s\S]*)", response
+                             ).group(1).replace("\n", '')
