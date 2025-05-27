@@ -3,13 +3,13 @@
 JobMatch AI is an end-to-end job application tracking system powered by LLM-driven job evaluations, web scraping, and an interactive Streamlit dashboard.
 This tool scrapes job postings, analyzes their relevance using AI, and provides an intuitive UI for job tracking.
 ## Features
-🔹 Automated Job Scraper – Continuously scrapes job postings from various sources
-🔹 AI-Powered Job Evaluation – Uses a custom LLM agent to assess job relevance
-🔹 Streamlit Interactive Dashboard – View, filter, and track applications
-🔹 Database Integration – Stores job postings and applied status in MySQL
-🔹 Advanced Filtering – Supports list search, keyword matching, sliders, datetime selectors, and Boolean filters
-🔹 Job Application Tracker – Mark jobs as applied and update statuses dynamically
-🔹 Click-to-Apply Functionality – Open job postings directly from the UI
+- Automated Job Scraper – Continuously scrapes job postings from various sources
+- AI-Powered Job Evaluation – Uses a custom LLM agent to assess job relevance
+- Streamlit Interactive Dashboard – View, filter, and track applications
+- Database Integration – Stores job postings and applied status in MySQL
+- Advanced Filtering – Supports list search, keyword matching, sliders, datetime selectors, and Boolean filters
+- Job Application Tracker – Mark jobs as applied and update statuses dynamically
+- Click-to-Apply Functionality – Open job postings directly from the UI
 
 Repository Structure
 📂 main – Orchestrates scraping and job evaluation logic
