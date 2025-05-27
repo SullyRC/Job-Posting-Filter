@@ -86,7 +86,15 @@ class Agent:
         results[current_question] = parsed_data
 
         # Determine next question based on response
-        response_text = parsed_data.get("response", "").strip()
+        response_text = parsed_data.get("response", "")
+
+        # Strip the response text if we got it
+        if response_text:
+            response_text = response_text.strip()
+
+        # Otherwise return an empty string
+        else:
+            response_text = ""
 
         return response_text
 
@@ -95,32 +103,40 @@ class Agent:
         results = {}
         current_question = self.root_node  # Start from root node
 
-        while current_question:
-            print(current_question)
-            question_data = self.config["Agent_questions"].get(current_question)
+        try:
 
-            if not question_data:
-                print(f"Error: Question '{current_question}' is missing in config.")
-                break
+            while current_question:
+                print(current_question)
+                question_data = self.config["Agent_questions"].get(current_question)
 
-            method_name = question_data['function']
-            function_ref = getattr(self, method_name, None)  # Get method reference
+                if not question_data:
+                    print(f"Error: Question '{current_question}' is missing in config.")
+                    break
 
-            if function_ref and callable(function_ref):  # Ensure it's a valid method
-                response_text = function_ref(current_question, question_data, results, description)
-            else:
-                raise ValueError(f"Error: Function '{method_name}' not found or not callable.")
+                method_name = question_data['function']
+                function_ref = getattr(self, method_name, None)  # Get method reference
 
-            # output our response
-            print(response_text)
+                if function_ref and callable(function_ref):  # Ensure it's a valid method
+                    response_text = function_ref(
+                        current_question, question_data, results, description)
+                else:
+                    raise ValueError(f"Error: Function '{method_name}' not found or not callable.")
 
-            # Get our next question if we have one
-            next_question = question_data.get("children", {}).get(response_text)
+                # output our response
+                print(response_text)
 
-            if not next_question:
-                break  # Stop traversing if there's no child for the given response
+                # Get our next question if we have one
+                next_question = question_data.get("children", {}).get(response_text)
 
-            current_question = next_question  # Move to next node in the tree
+                if not next_question:
+                    break  # Stop traversing if there's no child for the given response
+
+                current_question = next_question  # Move to next node in the tree
+
+        # Catch any error so that we can return the results
+        except Exception as e:
+            print("Unexpected outcome when evaluating question {}: {}".format(current_question,
+                                                                              e))
 
         return results
 

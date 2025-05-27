@@ -24,7 +24,8 @@ class DataBaseHandler:
                                 experience TEXT,
                                 employment_type TEXT,
                                 industries TEXT,
-                                agent_response JSON, 
+                                agent_response JSON,
+                                applied BOOLEAN DEFAULT FALSE,
                                 insert_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                                 )
                             """)
@@ -97,3 +98,24 @@ class DataBaseHandler:
             print("Error updating agent responses:", e)
 
         return
+
+    def update_applied_status(self, applied_updates):
+        """
+        Updates the 'applied' status for given job postings.
+
+        :param applied_updates: List of tuples [(id, applied_status)] where 'id' is the job ID.
+        """
+        query = """
+            UPDATE job_postings 
+            SET applied = %s 
+            WHERE id = %s
+            """
+
+        # Convert True/False to 1/0 for MySQL
+        formatted_updates = [(int(applied), job_id) for job_id, applied in applied_updates]
+
+        try:
+            self.cursor.executemany(query, formatted_updates)  # Batch update multiple rows
+            self.conn.commit()
+        except mysql.connector.Error as e:
+            print(f"❌ Error updating applied status: {e}")
