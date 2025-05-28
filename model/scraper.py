@@ -113,9 +113,9 @@ class LinkedInScraper(BaseScraper):
                          ]
 
             # Also check if any of the job ids are present. If so skip them
-            for job_id in current_job_links['posting_id']:
+            for job_id in current_job_links['posting_id'].dropna():
                 for job in job_links:
-                    if job_id in job:
+                    if type(job) is str and job_id in job:
                         job_links.remove(job)
 
             return job_links

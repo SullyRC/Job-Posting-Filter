@@ -69,7 +69,8 @@ class AgentInference:
         """
         if "gemma" in self.model_name.lower():  # Gemma-specific format
             instructions_prompt_fmt = f"<system>{instructions_prompt}</system>"
-            data_prompt_fmt = f"<user>[Description]{data_prompt}[EndDescription]</user><assistant>"
+            data_prompt_fmt = f"<user>[Description]{data_prompt}[EndDescription]</user><assistant>"\
+                "[Response]"
 
         elif "llama" in self.model_name.lower():  # Llama-specific format
             instructions_prompt_fmt = "<bos><start_of_turn>user" + \

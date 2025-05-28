@@ -17,7 +17,8 @@ st.set_page_config(layout="wide")
 st.title("Job Postings Viewer")
 
 # Sidebar Navigation
-menu = st.sidebar.radio("Navigation", ["View Jobs", "View Unprocessed Jobs"])
+menu = st.sidebar.radio(
+    "Navigation", ["View Jobs", "Response Explanation", "View Unprocessed Jobs"])
 
 # Function to load data
 
@@ -38,6 +39,10 @@ def load_data(view_type):
 
         if 'applied' in loaded.columns:
             loaded['applied'] = loaded['applied'].astype(bool)
+
+        if 'id' in loaded.columns:
+            loaded['id'] = loaded['id'].astype(str)
+
         # Ensure JSON column is parsed correctly
         loaded["agent_response"] = loaded["agent_response"].apply(lambda x: json.loads(x)
                                                                   if pd.notna(x) else {})
@@ -54,6 +59,41 @@ def load_data(view_type):
         loaded = pd.concat([loaded.drop(columns=["agent_response"]), json_expanded], axis=1)
 
         loaded.drop(columns=['posting_id', 'description'], inplace=True)
+
+        return loaded
+
+    if view_type == "Response Explanation":
+        # Load the data
+        loaded = db_handler.fetch_all_jobs()
+
+        # Priority columns
+        ordering = [col for col in ['insert_timestamp', 'job_title', 'applied', 'posting_url',
+                                    'job_id'] if col in loaded.columns]
+
+        # shift ordering of columns in the dataframe
+        other_cols = [col for col in loaded.columns if col not in ordering]
+
+        loaded = loaded[ordering + other_cols]
+
+        if 'applied' in loaded.columns:
+            loaded['applied'] = loaded['applied'].astype(bool)
+
+        if 'id' in loaded.columns:
+            loaded['id'] = loaded['id'].astype(str)
+
+        # Ensure JSON column is parsed correctly
+        loaded["agent_response"] = loaded["agent_response"].apply(lambda x: json.loads(x)
+                                                                  if pd.notna(x) else {})
+
+        json_expanded = loaded["agent_response"].apply(lambda data:
+                                                       {key: data[key]["explanation"] for key in data
+                                                        if "explanation" in data[key]})
+
+        # Convert extracted responses into DataFrame columns
+        json_expanded = json_expanded.apply(pd.Series)
+
+        # Merge expanded JSON columns back into the main DataFrame
+        loaded = pd.concat([loaded.drop(columns=["agent_response"]), json_expanded], axis=1)
 
         return loaded
 
@@ -101,9 +141,9 @@ def filter_datetime_slider(df, column):
     start_date = st.sidebar.date_input(
         "Start Date", min_value=min_date, max_value=max_date, value=min_date)
     end_date = st.sidebar.date_input("End Date", min_value=min_date,
-                                     max_value=max_date, value=max_date)
+                                     max_value=max_date, value=max_date) + pd.Timedelta(1, unit='D')
 
-    return f"`{column}` >= @start_date & `{column}` <= @end_date"
+    return start_date, end_date, f"`{column}` >= @start_date & `{column}` <= @end_date"
 
 
 def filter_boolean(df, column):
@@ -144,7 +184,9 @@ for column in selected_columns:
         query = filter_slider(df, column)
 
     elif pd.api.types.is_datetime64_any_dtype(df[column]):
-        query = filter_datetime_slider(df, column)
+        start_date, end_date, query = filter_datetime_slider(df, column)
+        # locals()["start_date"] = start_date
+        # locals()["end_date"] = end_date
 
     else:
         raise TypeError(f"Cannot filter column '{column}' for type {col_dtype}")

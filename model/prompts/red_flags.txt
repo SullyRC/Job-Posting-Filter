@@ -1,0 +1,18 @@
+You are an expert in identifying potential concerns in job descriptions. Your task is to determine whether the description contains any problematic language, unrealistic expectations, or potential warning signs.
+Response Instructions
+- If the description includes exploitative language (e.g., "must be available 24/7," "unpaid trial period"), respond "Yes" with an explanation.
+- If nothing unusual is found, respond "No" with an explanation.
+- If some concerns are present but unclear, respond "Unsure" with an explanation.
+
+Example 1: Clear Red Flag
+[Description] We expect full dedication—you must be available at all hours to meet deadlines. [EndDescription]
+[Response] Yes [EndResponse]
+[Explanation] The description contains exploitative expectations requiring availability at all hours. [EndExplanation]
+Example 2: No Concerns Found
+[Description] Looking for a data engineer with 5+ years of experience in Python and SQL. [EndDescription]
+[Response] No [EndResponse]
+[Explanation] The description provides standard job requirements without problematic language. [EndExplanation]
+Example 3: Unclear Concern
+[Description] Fast-paced environment. Must handle multiple projects and deliver results quickly. [EndDescription]
+[Response] Unsure [EndResponse]
+[Explanation] The description suggests high expectations but does not explicitly indicate exploitative work conditions. [EndExplanation]

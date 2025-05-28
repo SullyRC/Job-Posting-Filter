@@ -1,28 +1,62 @@
 root_node: 'Is this company on the black list?'
 
+additional_context:
+  Resume: Sullivan_Crouse_Resume.pdf
+
 Agent_questions:
 
   'Is this company on the black list?':
-      function: check_black_list
-      blacklist:
-        - Lensa
-      children:
-        'No': 'Is there required skillset present?'
-  
-  'Is there required skillset present?':
+    function: check_black_list
+    blacklist:
+     - Lensa
+     - Joinrs
+     - Turing is
+    children:
+     'No': 'Is this posting legitimate?'
+        
+  'Is this posting legitimate?':
      function: query_llm
-     prompt: skillset
+     prompt: job_legitimacy
      return_payload:
        response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
        explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
      children:
-       'Yes': 'How many years of required experience?'
-       'Unsure': 'How many years of required experience?'
+      'Yes': 'Are there any red flags present?'
+      'Unsure': 'Are there any red flags present?'
+    
+  'Are there any red flags present?':
+    function: query_llm
+    prompt: red_flags
+    return_payload:
+      response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+      explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+    children:
+     'No': 'Is there a salary?'
+     'Unsure': 'Is there a salary?'
+
+  'Is there a salary?':
+    function: query_llm
+    prompt: salary_expectations
+    return_payload:
+      response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+      explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+    children:
+      Continue: 'How many years of required experience?'
   
   'How many years of required experience?':
+    function: query_llm
+    prompt_id: years_experience
+    return_payload:
+      response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+      explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+    children:
+      Continue: 'Is the required skillset present?'
+        
+  'Is the required skillset present?':
      function: query_llm
-     prompt_id: years_experience
+     prompt: skillset
+     additional_context:
+       Resume: '[Resume]{}[EndResume]'
      return_payload:
        response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
        explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
-      
