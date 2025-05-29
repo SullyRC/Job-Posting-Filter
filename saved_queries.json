@@ -1,0 +1,22 @@
+{
+    "unapplied_entry_level": {
+        "applied": {
+            "func": "filter_boolean",
+            "value": false
+        },
+        "experience": {
+            "func": "filter_list_search",
+            "value": [
+                "Entry level",
+                "Associate"
+            ]
+        },
+        "Is_the_required_skillset_present": {
+            "func": "filter_list_search",
+            "value": [
+                "Yes",
+                "Unsure"
+            ]
+        }
+    }
+}

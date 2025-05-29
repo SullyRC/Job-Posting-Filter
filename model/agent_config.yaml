@@ -2,17 +2,36 @@ root_node: 'Is this company on the black list?'
 
 additional_context:
   Resume: Sullivan_Crouse_Resume.pdf
+  JobTitles: job_titles.txt
 
 Agent_questions:
 
   'Is this company on the black list?':
-    function: check_black_list
-    blacklist:
+    function: check_text_list
+    textlist:
      - Lensa
      - Joinrs
      - Turing is
     children:
-     'No': 'Is this posting legitimate?'
+     'No': 'Does the posting contain one of the job titles?'
+     
+  'Does the posting contain one of the job titles?':
+    function: check_text_list
+    additional_context:
+      JobTitles: True
+    children:
+     'No': 'Does the description relate to one of the job titles?'
+     'Yes': 'Is this posting legitimate?'
+
+  'Does the description relate to one of the job titles?':
+    function: query_llm
+    prompt: title_matching
+    return_payload:
+      response: '\[Response\]\s*(.*?)\s*\[EndResponse\]'
+      explanation: '\[Explanation\]\s*(.*?)\s*\[EndExplanation\]'
+    children:
+     'Yes': 'Is this posting legitimate?'
+     'Unsure': 'Is this posting legitimate?'
         
   'Is this posting legitimate?':
      function: query_llm

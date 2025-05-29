@@ -99,34 +99,44 @@ class Agent:
                 extracted_data[key] = match.group(1) if match else None
         return extracted_data
 
-    def check_black_list(self, current_question: str, question_data: dict, results: dict,
-                         description: str):
+    def check_text_list(self, current_question: str, question_data: dict, results: dict, description: str):
         """
-        Function to check if the company is on the blacklist.
+        Function to check if the description contains text from a predefined list or additional context file.
         :param current_question: Current question being evaluated.
         :param question_data: Config details for this question.
         :param results: Dictionary storing responses.
         :param description: The job description being analyzed.
-        :return: 'Yes' if blacklisted, 'No' otherwise.
+        :return: 'Yes' if a match is found, 'No' otherwise.
         """
-        blacklist = question_data.get("blacklist", [])
+        textlist = question_data.get("textlist", [])
 
-        # Loop through blacklist to find a match in the job description
+        # 🔹 Check if additional context specifies a text file
+        additional_context_key = question_data.get("additional_context_key")
+        if additional_context_key and additional_context_key in self.additional_context:
+            file_path = os.path.join(
+                self.prompt_dir, self.additional_context[additional_context_key])
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    textlist.extend(f.read().strip().split(","))
+            except Exception as e:
+                print(f"Error loading additional context file '{file_path}': {e}")
+
         response_text = "No"
-        matched_company = None
+        matched_text = None
 
-        for company in blacklist:
-            if company.lower() in description.lower():  # Case-insensitive match
+        # 🔹 Case-insensitive matching against description
+        for term in textlist:
+            if term.lower().strip() in description.lower():
                 response_text = "Yes"
-                matched_company = company
-                break  # Stop looping as soon as we find a match
+                matched_text = term
+                break  # Stop looping once a match is found
 
-        # Store results
+        # 🔹 Store results with a neutral explanation format
         results[current_question] = {
             "response": response_text,
-            "explanation": f"The company '{matched_company}' is on the blacklist."
-            if matched_company else
-            "No blacklisted companies found in the description."
+            "explanation": f"The term '{matched_text}' was found in the description."
+            if matched_text else
+            "No matches found from the provided text list."
         }
 
         return response_text
