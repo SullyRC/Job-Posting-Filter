@@ -10,8 +10,12 @@ scraper_config:
         - https://www.linkedin.com/jobs/search/?f_TPR=r86400&f_VJ=true&f_WT=2&keywords=machine%20learning%20engineer&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true&sortBy=DD
         - https://www.linkedin.com/jobs/search/?f_TPR=r86400&f_VJ=true&f_WT=2&geoId=103644278&keywords=software%20engineer&origin=JOB_SEARCH_PAGE_SEARCH_BUTTON&refresh=true&sortBy=DD
         - https://www.linkedin.com/jobs/search/?f_TPR=r86400&f_VJ=true&f_WT=1%2C2%2C3&geoId=102264677&keywords=software%20engineer&origin=JOB_SEARCH_PAGE_JOB_FILTER&refresh=true&sortBy=DD
-
-
+    DiceScraper:
+      LandingPages:
+        - https://www.dice.com/jobs?filters.postedDate=ONE&filters.employmentType=FULLTIME%7CCONTRACTS&filters.workplaceTypes=Remote%7COn-Site%7CHybrid&location=Charlotte%2C+NC%2C+USA&q=data+science&latitude=35.2215548&longitude=-80.840116&countryCode=US&locationPrecision=City&adminDistrictCode=NC
+        - https://www.dice.com/jobs?filters.postedDate=ONE&filters.employmentType=FULLTIME%7CCONTRACTS&filters.workplaceTypes=Remote%7COn-Site%7CHybrid&location=Charlotte%2C+NC%2C+USA&q=data+analyst&latitude=35.2215548&longitude=-80.840116&countryCode=US&locationPrecision=City&adminDistrictCode=NC
+        - https://www.dice.com/jobs?filters.postedDate=ONE&filters.employmentType=FULLTIME%7CCONTRACTS&filters.workplaceTypes=Remote%7COn-Site%7CHybrid&location=Charlotte%2C+NC%2C+USA&q=data+engineer&latitude=35.2215548&longitude=-80.840116&countryCode=US&locationPrecision=City&adminDistrictCode=NC
+        - https://www.dice.com/jobs?filters.postedDate=ONE&filters.employmentType=FULLTIME%7CCONTRACTS&filters.workplaceTypes=Remote%7COn-Site%7CHybrid&location=Charlotte%2C+NC%2C+USA&q=machine+learning&latitude=35.2215548&longitude=-80.840116&countryCode=US&locationPrecision=City&adminDistrictCode=NC
 
 functions:
   run_scrapers:
@@ -26,12 +30,6 @@ schedule:
   0:
     - run_scrapers
     - process_unprocessed_jobs
-  15:
-    - run_scrapers
-    - process_unprocessed_jobs
   30:
-    - run_scrapers
-    - process_unprocessed_jobs
-  45:
     - run_scrapers
     - process_unprocessed_jobs

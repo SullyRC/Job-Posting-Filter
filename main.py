@@ -1,5 +1,5 @@
 import yaml
-from model.scraper import LinkedInScraper
+from model.scraper import LinkedInScraper, DiceScraper
 from model.DataBaseHandler import DataBaseHandler
 from model.Agent import Agent
 import json
@@ -9,6 +9,7 @@ import datetime
 import os
 import time
 import sys
+import multiprocessing
 
 
 def load_config(config_path="config.yaml"):
@@ -46,12 +47,31 @@ def schedule_functions(config, current_vars: dict):
 
 
 def run_scrapers(config: dict, db_handler: DataBaseHandler):
-    """Executes scrapers based on config settings."""
+    """Executes scrapers in parallel using multiprocessing."""
+    processes = []
+
     for scraper_name, data in config['scraper_config']['classes'].items():
-        print(f"Scraping using {scraper_name}")
-        scraper = eval(scraper_name)(db_handler, data)
-        scraper.parse_all_searches()
-        scraper.close()
+        process = multiprocessing.Process(target=run_individual_scraper,
+                                          args=(scraper_name, data, db_handler))
+        processes.append(process)
+        process.start()
+
+    # Wait for all processes to complete
+    for process in processes:
+        process.join()
+
+    print("All scrapers completed.")
+
+
+def run_individual_scraper(scraper_name, config, db_handler):
+    """Execute a single scraper instance in a separate process."""
+    print(f"Starting scraper: {scraper_name}")
+
+    scraper_class = eval(scraper_name)  # Convert string to class reference
+    scraper = scraper_class(db_handler, config)
+
+    scraper.parse_all_searches()
+    scraper.close()
 
 
 def process_unprocessed_jobs(agent: Agent, db_handler: DataBaseHandler):
@@ -98,7 +118,8 @@ def main():
         return
 
     # Initialize components with config if necessary
-    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')))
+    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
+                                 pool_size=len(config['scraper_config']['classes'].keys()))
 
     description_eval = Agent('model/agent_config.yaml',
                              'model/prompts')
@@ -120,4 +141,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    config = load_config()
+
+    # Initialize components with config if necessary
+    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
+                                 pool_size=2)
+    run_scrapers(config, db_handler)

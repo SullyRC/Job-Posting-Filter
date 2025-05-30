@@ -1,6 +1,8 @@
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, \
+    ElementClickInterceptedException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from model.DataBaseHandler import DataBaseHandler
@@ -38,6 +40,42 @@ class BaseScraper:
     def handle_landing_popups(self):
         """Abstract method for handling landing popups."""
         return NotImplementedError()
+
+    def extract_jobs_list(self):
+        """Abstract method for extracting job list"""
+        return NotImplementedError()
+
+    def extract_job_information(self):
+        return NotImplementedError()
+
+    def extract_all_for_search(self, landing_url):
+        """
+        Load and parse information from all jobs listed
+        """
+        self.navigate_landing_page(landing_url)
+
+        # Get our job links
+        links = self.extract_jobs_list()
+
+        # Get our information
+        job_set = [self.extract_job_information(job) for job in links]
+
+        return job_set
+
+    def parse_all_searches(self):
+        """
+        Parse all landing pages for a scraper class in the config
+        """
+        job_set = []
+
+        for landing_page in self.config['LandingPages']:
+            job_set.extend(self.extract_all_for_search(landing_page))
+
+            # Insert into our database
+            self.db_handler.insert_jobs(job_set)
+
+        df = pd.DataFrame(job_set)
+        return df
 
     def close(self):
         """Close the browser."""
@@ -90,7 +128,7 @@ class LinkedInScraper(BaseScraper):
             time.sleep(5)
 
             # Get the list
-            job_list = self.driver.find_elements(By.CLASS_NAME, "jobs-search__results-list")
+            job_list = self.driver.find_elements(By.CLASS_NAME, "two-pane-serp-page__results-list")
 
             # Extract the inner html
             job_html = job_list[0].get_attribute("innerHTML")
@@ -186,34 +224,100 @@ class LinkedInScraper(BaseScraper):
 
         return posting_information
 
-    def extract_all_for_search(self, landing_url):
+
+class DiceScraper(BaseScraper):
+
+    def handle_landing_popups(self):
         """
-        Load and parse information from all jobs listed
+        Method for navigating to the search page and handling popups
         """
-        self.navigate_landing_page(landing_url)
+        try:
+            self.driver.find_element(By.XPATH,
+                                     "//button[@data-testid='recommended-jobs-banner-close-btn']"
+                                     ).click()
 
-        # Get our job links
-        links = self.extract_jobs_list()
+        # This can happen if we have already closed it before
+        except NoSuchElementException as e:
+            pass
 
-        # Get our information
-        job_set = [self.extract_job_information(job) for job in links]
+        except ElementClickInterceptedException as e:
+            print("Dismissal intercepted: {}.\nContinuing to scrape.".format(e.__class__))
 
-        return job_set
+    def extract_jobs_list(self):
+        """Method for getting the list of hrefs from the job list"""
+        # Loop until we have reached every page
+        current_job_links = self.db_handler.fetch_recent_jobs()
 
-    def parse_all_searches(self):
-        """
-        Parse all landing pages for linkedin in the config
-        """
-        job_set = []
+        if type(current_job_links) is None or current_job_links.shape[0] == 0:
+            current_job_links = pd.DataFrame(data={"posting_url": []})
 
-        for landing_page in self.config['LandingPages']:
-            job_set.extend(self.extract_all_for_search(landing_page))
+        new_links = []
 
-            # Insert into our database
-            self.db_handler.insert_jobs(job_set)
+        try:
+            while True:
+                time.sleep(2)
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                job_list = self.driver.find_element(By.XPATH,
+                                                    "//div[@data-testid='job-search-results-container']"
+                                                    )
 
-        df = pd.DataFrame(job_set)
-        return df
+                # Extract the inner html
+                job_html = job_list.get_attribute("innerHTML")
+
+                # Regex search for the hrefs
+                href_pattern = r'href=["\'](.*?)["\']'
+                job_links = re.findall(href_pattern, job_html)
+
+                # Add the new links
+                new_links.extend([job for job in job_links
+                                 if job not in current_job_links['posting_url']
+                                 and 'job-detail' in job
+                                  ])
+
+                # Check to see if we have more pages
+                svg_element = self.driver.find_element(By.XPATH, "//span[@aria-label='Next']")
+                if svg_element.get_attribute('aria-disabled'):
+                    break
+                else:
+                    self.handle_landing_popups()
+                    self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'"
+                                               ", block: 'center'});", svg_element)
+                    svg_element.click()
+
+        except Exception as e:
+            print("Could not continue to search for jobs due to error {}".format(e.__class__))
+
+        finally:
+            # Get the unique links
+            new_links = list(set(new_links))
+            return new_links
+
+    def extract_job_information(self, url):
+        # Get the url and id
+        posting_information = {'posting_url': url,
+                               'posting_id': url.split('job-detail/')[1],
+                               'job_title': None,
+                               'description': None,
+                               'experience': 'Dice: not available',
+                               'employment_type': 'Dice: not available',
+                               'industries': 'Dice: not available'}
+
+        try:
+            self.navigate(url)
+
+            # Get the title
+            title = self.driver.find_element(By.TAG_NAME, 'h1')
+            posting_information['job_title'] = title.text
+
+            # Get the description
+            description = self.driver.find_element(By.ID, "jobDescription")
+            posting_information['description'] = description.text
+
+        except Exception as e:
+            print("Could not properly parse url {} due to error: {}".format(url, e))
+
+        finally:
+            return posting_information
 
 
 if __name__ == '__main__':
@@ -224,6 +328,6 @@ if __name__ == '__main__':
             os.environ['DataBaseAuth'])),
         config=config
     )
-
-    df = scraper.parse_all_searches()
+    scraper.extract_all_for_search(config['LandingPages'][0])
+    data = scraper.parse_all_searches()
     scraper.close()

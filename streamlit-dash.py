@@ -163,6 +163,9 @@ for column in selected_columns:
     saved_col = saved_queries.get(selected_query, {}).get(column)
 
     if saved_col:
+        use_save_data = st.sidebar.radio("Use saved filter for {}?".format(column), [True, False])
+
+    if saved_col and use_save_data:
         condition, saved_data = eval(saved_col['func'])(df, column, saved_col['value'])
     elif pd.api.types.is_string_dtype(df[column]) or pd.api.types.is_object_dtype(df[column]):
         filter_type = st.sidebar.radio(f"Filter type for '{column}'", ["List Search", "Contains"],
