@@ -141,10 +141,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    config = load_config()
-
-    # Initialize components with config if necessary
-    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
-                                 pool_size=2)
-    run_scrapers(config, db_handler)
+    main()

@@ -76,6 +76,8 @@ def load_data(view_type):
     loaded.columns = [col.replace('?', '').replace(' ', '_') if '?' in col else col
                       for col in loaded.columns]
 
+    loaded.fillna('Missing Value', inplace=True)
+
     return loaded
 
 
@@ -123,7 +125,7 @@ def filter_datetime_slider(df, column, selected_values=None):
         "Start Date", min_value=min_date, max_value=max_date, value=min_date)
     end_date = st.sidebar.date_input("End Date", min_value=min_date,
                                      max_value=max_date, value=max_date) + pd.Timedelta(1, unit='D')
-    condition = (df[column] >= start_date) & (df[column] <= end_date)
+    condition = (df[column].dt.date >= start_date) & (df[column].dt.date <= end_date)
     return condition, {'func': 'filter_datetime_slider', 'value': None}
 
 
@@ -217,6 +219,8 @@ if st.button("🔄 Refresh Data"):
 if df.empty:
     st.write("No matching records found.")
 else:
+    st.subheader("Number of jobs with criteria: {}".format(df_filtered.shape[0]))
+
     edited_df = st.data_editor(df_filtered, height=600, use_container_width=True, num_rows='dynamic',
                                column_config={
                                    'posting_url': st.column_config.LinkColumn(),

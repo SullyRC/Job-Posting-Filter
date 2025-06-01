@@ -4,11 +4,20 @@
             "func": "filter_boolean",
             "value": false
         },
+        "employment_type": {
+            "func": "filter_list_search",
+            "value": [
+                "Full-time",
+                "Contract",
+                "Dice: not available"
+            ]
+        },
         "experience": {
             "func": "filter_list_search",
             "value": [
-                "Entry level",
-                "Associate"
+                "Dice: not available",
+                "Associate",
+                "Entry level"
             ]
         },
         "Is_the_required_skillset_present": {
