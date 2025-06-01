@@ -3,15 +3,14 @@ root_node: 'Is this company on the black list?'
 additional_context:
   Resume: Sullivan_Crouse_Resume.pdf
   JobTitles: job_titles.txt
+  BlackList: black_list.txt
 
 Agent_questions:
 
   'Is this company on the black list?':
     function: check_text_list
-    textlist:
-     - Lensa
-     - Joinrs
-     - Turing is
+    additional_context:
+      BlackList: True
     children:
      'No': 'Does the posting contain one of the job titles?'
      

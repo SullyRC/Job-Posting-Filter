@@ -9,7 +9,7 @@ import datetime
 import os
 import time
 import sys
-import multiprocessing
+import threading
 
 
 def load_config(config_path="config.yaml"):
@@ -47,18 +47,18 @@ def schedule_functions(config, current_vars: dict):
 
 
 def run_scrapers(config: dict, db_handler: DataBaseHandler):
-    """Executes scrapers in parallel using multiprocessing."""
-    processes = []
+    """Executes scrapers in parallel using multithreading."""
+    threads = []
+    for scraper_name in config['scraper_config']['classes'].keys():
+        thread = threading.Thread(target=run_individual_scraper, args=(scraper_name,
+                                                                       config,
+                                                                       db_handler))
+        thread.start()
+        threads.append(thread)
 
-    for scraper_name, data in config['scraper_config']['classes'].items():
-        process = multiprocessing.Process(target=run_individual_scraper,
-                                          args=(scraper_name, data, db_handler))
-        processes.append(process)
-        process.start()
-
-    # Wait for all processes to complete
-    for process in processes:
-        process.join()
+    # ✅ Wait for all threads to complete
+    for thread in threads:
+        thread.join()
 
     print("All scrapers completed.")
 
@@ -66,9 +66,8 @@ def run_scrapers(config: dict, db_handler: DataBaseHandler):
 def run_individual_scraper(scraper_name, config, db_handler):
     """Execute a single scraper instance in a separate process."""
     print(f"Starting scraper: {scraper_name}")
-
     scraper_class = eval(scraper_name)  # Convert string to class reference
-    scraper = scraper_class(db_handler, config)
+    scraper = scraper_class(db_handler, config['scraper_config']['classes'][scraper_name])
 
     scraper.parse_all_searches()
     scraper.close()
@@ -112,10 +111,11 @@ def process_unprocessed_jobs(agent: Agent, db_handler: DataBaseHandler):
     print("Successfully updated agent responses in the database.")
 
 
-def eval_on_loop(description_eval: Agent = None, db_handler: DataBaseHandler = None):
-    config = load_config()
+def eval_on_loop(config: dict = None,
+                 description_eval: Agent = None, db_handler: DataBaseHandler = None):
+
     if not config:
-        return
+        config = load_config()
 
     if not db_handler:
         # Initialize components with config if necessary
@@ -130,9 +130,7 @@ def eval_on_loop(description_eval: Agent = None, db_handler: DataBaseHandler = N
         'db_handler': db_handler,
         'agent': description_eval
     }
-    while True:
-        schedule_functions(config, current_vars)
-        time.sleep(30)
+    schedule_functions(config, current_vars)
 
     return
 

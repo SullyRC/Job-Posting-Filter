@@ -5,12 +5,12 @@ import pandas as pd
 import os
 import numpy as np
 from model.DataBaseHandler import DataBaseHandler
-from ui_components.job_filter import filter_job_postings
+from ui_components.config_editor import edit_config_page
 
 
 def show_evaluation_status():
-    if "eval_process" in st.session_state and st.session_state.eval_process is not None:
-        if st.session_state.eval_process.is_alive():
+    if "eval_running" in st.session_state and st.session_state.eval_running is not None:
+        if st.session_state.eval_running:
             st.sidebar.info("Evaluation Loop is Running")
         else:
             st.sidebar.warning("Evaluation Loop is Not Running")
@@ -22,7 +22,7 @@ def main():
     st.set_page_config(layout="wide")
 
     st.sidebar.title("Job Filter AI")
-    page = st.sidebar.radio("Select Page", ["Job Filter", "Data Enrichment"])
+    page = st.sidebar.radio("Select Page", ["Job Filter", "Data Enrichment", "Edit Service Config"])
 
     # Display evaluation loop status on all pages.
     show_evaluation_status()
@@ -33,10 +33,12 @@ def main():
         filter_job_postings()
 
     elif page == "Data Enrichment":
-        st.title("Loading Agent")
-        st.subheader("This can take up to 5 minutes")
         from ui_components.enrichment import background_controller
         background_controller()
+
+    elif page == "Edit Service Config":
+        from ui_components.config_editor import edit_config_page
+        edit_config_page()
 
 
 if __name__ == '__main__':

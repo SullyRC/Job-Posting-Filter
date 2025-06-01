@@ -1,9 +1,11 @@
+import re
+import time
+import os
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import gc
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-import os
-import time
-import re
+
+torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__)]
 
 
 class AgentInference:
