@@ -112,17 +112,19 @@ def process_unprocessed_jobs(agent: Agent, db_handler: DataBaseHandler):
     print("Successfully updated agent responses in the database.")
 
 
-def main():
+def eval_on_loop(description_eval: Agent = None, db_handler: DataBaseHandler = None):
     config = load_config()
     if not config:
         return
 
-    # Initialize components with config if necessary
-    db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
-                                 pool_size=len(config['scraper_config']['classes'].keys()))
+    if not db_handler:
+        # Initialize components with config if necessary
+        db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
+                                     pool_size=len(config['scraper_config']['classes'].keys()))
 
-    description_eval = Agent('model/agent_config.yaml',
-                             'model/prompts')
+    if not description_eval:
+        description_eval = Agent('model/agent_config.yaml',
+                                 'model/prompts')
     current_vars = {
         'config': config,
         'db_handler': db_handler,
@@ -132,13 +134,8 @@ def main():
         schedule_functions(config, current_vars)
         time.sleep(30)
 
-    # Initialize components with config if necessary
-    # agent = Agent(config_path=config["agent_config"])
-
-    # Example usage (modify as needed)
-    jobs_to_process = db_handler.fetch_unprocessed_jobs()
-    print("Unprocessed Jobs:", jobs_to_process)
+    return
 
 
 if __name__ == "__main__":
-    main()
+    eval_on_loop()
