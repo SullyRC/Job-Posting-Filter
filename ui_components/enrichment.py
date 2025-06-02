@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-import multiprocessing
 import time
 from model.DataBaseHandler import DataBaseHandler
 from model.data_enrichment import load_config, eval_on_loop, run_scrapers, process_unprocessed_jobs
@@ -11,19 +10,11 @@ import queue
 
 message_queue = queue.Queue()
 
-if "eval_running" not in st.session_state:
-    st.session_state.eval_running = False
-if "scrapers_running" not in st.session_state:
-    st.session_state.scrapers_running = False
-if "process_jobs_running" not in st.session_state:
-    st.session_state.process_jobs_running = False
-
-if "eval_thread" not in st.session_state:
-    st.session_state.eval_thread = None
-if "scrapers_thread" not in st.session_state:
-    st.session_state.scrapers_thread = None
-if "process_jobs_thread" not in st.session_state:
-    st.session_state.process_jobs_thread = None
+for key in ["eval_running", "scrapers_running", "process_jobs_running",
+            "eval_thread", "scrapers_thread", "process_jobs_thread"]:
+    if key not in st.session_state:
+        st.session_state[key] = False if "running" in key else None
+eval_running_flag = False
 
 
 def get_db_handler_and_config():
@@ -38,25 +29,32 @@ def get_db_handler_and_config():
 
 def start_evaluation_loop():
     """Start the evaluation loop in a background thread."""
+    if "eval_running" not in st.session_state:
+        st.session_state.eval_running = False  # ✅ Ensure initialization before accessing
+
     if not st.session_state.eval_running:
         db_handler, config = get_db_handler_and_config()
         st.session_state.eval_running = True
 
         def loop_wrapper():
-            while st.session_state.eval_running:
-                eval_on_loop(config, agent, db_handler)  # Run evaluation
-                time.sleep(30)  # Sleep to simulate periodic execution
+            global eval_running_flag
+            eval_running_flag = True
+            while eval_running_flag:
+                eval_on_loop(config, agent, db_handler)
+                time.sleep(30)  # Sleep between iterations
+
+            print("✅ Evaluation loop gracefully exited.")
 
         thread = threading.Thread(target=loop_wrapper, daemon=True)
         thread.start()
         st.session_state.eval_thread = thread
         st.success("Evaluation loop started!")
-    else:
-        st.info("Evaluation loop is already running.")
 
 
 def stop_evaluation_loop():
     """Stop the evaluation loop."""
+    global eval_running_flag
+    eval_running_flag = False
     st.session_state.eval_running = False
     if st.session_state.eval_thread is not None:
         st.session_state.eval_thread.join()
@@ -131,8 +129,8 @@ def run_background_controller():
 
     # --- Optional: Display Status ---
     st.write("### Background Process Status")
-    if st.session_state.eval_process is not None:
-        st.write("Evaluation Loop running:", st.session_state.eval_process.is_alive())
+    if eval_running_flag:
+        st.write("Evaluation Loop running:", eval_running_flag)
     else:
         st.write("Evaluation Loop is not running.")
 

@@ -3,6 +3,7 @@ Response Instructions
 - If the description includes exploitative language (e.g., "must be available 24/7," "unpaid trial period"), respond "Yes" with an explanation.
 - If nothing unusual is found, respond "No" with an explanation.
 - If some concerns are present but unclear, respond "Unsure" with an explanation.
+- Format your response in the form of [Response]response[EndResponse] [Explanation]explanation[EndExplanation]
 
 Example 1: Clear Red Flag
 [Description] We expect full dedication—you must be available at all hours to meet deadlines. [EndDescription]

@@ -3,6 +3,7 @@ Response Instructions
 - If a salary range or specific pay structure is mentioned, respond with the extracted information.
 - If compensation details are absent, respond "No" with an explanation.
 - If compensation is indirectly referenced but unclear, respond "Unsure" with an explanation.
+- Format your response in the form of [Response]response[EndResponse] [Explanation]explanation[EndExplanation]
 
 Example 1: Salary Information Exists
 [Description] Salary range: $100,000 - $120,000 based on experience. [EndDescription]

@@ -6,6 +6,7 @@ Response Instructions
 - If the description only mentions soft skills (e.g., communication, leadership, teamwork), respond "Unsure" with an explanation.
 - Recognize closely related skills (e.g., "Deep Learning" aligns with "TensorFlow/PyTorch", "SQL" aligns with "MySQL").
 - Do not infer experience years—only determine whether relevant skills are mentioned.
+- Format your response in the form of [Response]response[EndResponse] [Explanation]explanation[EndExplanation]
 
 Example Responses
 Example 1: Matching Resume Skills

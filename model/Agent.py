@@ -89,11 +89,14 @@ class Agent:
                 patterns = [
                     '(.*?)\s*\[EndResponse\]',
                     '(.*?)\s*\[EndAssistant\]',
+                    '(.*?)\s*\[Explanation]',
                     pattern
                 ]
+                extracted_data[key] = None
                 for pat in patterns:
                     match = re.search(pat, text)
-                    extracted_data[key] = match.group(1) if match else None
+                    if match:
+                        extracted_data[key] = match.group(1)
             else:
                 match = re.search(pattern, text)
                 extracted_data[key] = match.group(1) if match else None
@@ -111,19 +114,15 @@ class Agent:
         textlist = question_data.get("textlist", [])
 
         # 🔹 Check if additional context specifies a text file
-        additional_context_key = question_data.get("additional_context_key")
-        if additional_context_key and additional_context_key in self.additional_context:
-            file_path = os.path.join(
-                self.prompt_dir, self.additional_context[additional_context_key])
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    textlist.extend(f.read().strip().split(","))
-            except Exception as e:
-                print(f"Error loading additional context file '{file_path}': {e}")
+        additional_context = question_data.get("additional_context")
+        for additional_context_key in additional_context:
+            if additional_context_key and additional_context_key in self.additional_context:
+                textlist.extend(self.additional_context[additional_context_key].split(','))
 
         response_text = "No"
         matched_text = None
 
+        print(textlist)
         # 🔹 Case-insensitive matching against description
         for term in textlist:
             if term.lower().strip() in description.lower():
@@ -160,6 +159,7 @@ class Agent:
 
         llm_response = self.agent_inference.generate_with_instructions(
             instruction_text, enriched_description)
+
         parsed_data = self._extract_data(llm_response, question_data["return_payload"])
 
         # Store results

@@ -3,6 +3,7 @@ Response Instructions
 - If the job description provides a company name, structured role expectations, and professional contact details, respond "Yes" with an explanation.
 - If key details are missing (e.g., vague responsibilities, missing company information, or excessive urgency language), respond "No" with an explanation.
 - If some details are missing but not enough to determine certainty, respond "Unsure" with an explanation.
+- Format your response in the form of [Response]response[EndResponse] [Explanation]explanation[EndExplanation]
 
 Example 1: Legitimate Posting
 [Description] Acme Corp is hiring a Python developer. Responsibilities include building scalable ML solutions. Contact careers@acmecorp.com to apply. [EndDescription]

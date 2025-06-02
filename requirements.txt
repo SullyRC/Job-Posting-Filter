@@ -20,6 +20,7 @@ transformers
 accelerate==0.27.2
 #git+https://github.com/bitsandbytes-foundation/bitsandbytes.git
 #flash-attn==2.7.3
+mistralai==1.8.1
 
 # Also run the following
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
