@@ -1,3 +1,13 @@
+# Inference method can be from one of the listed values below
+InferenceMethod: ApiAgentInference
+
+ApiAgentInference:
+  # Must be valid from https://mistral.ai/pricing#api-pricing
+  model_name: 'ministral-3b-latest'
+DeviceAgentInference:
+  # Must be valid from Hugging face
+  model_name: "google/gemma-2-2b-it"
+
 root_node: 'Is this company on the black list?'
 
 additional_context:

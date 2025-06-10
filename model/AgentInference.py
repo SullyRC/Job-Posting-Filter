@@ -3,72 +3,26 @@ import time
 import os
 import gc
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import pipeline, BitsAndBytesConfig
 from mistralai import Mistral
 
 torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__)]
 
 
 class AgentInference:
-    def __init__(self, mistral_api=True, model_name="google/gemma-2-2b-it", model_dir="llms"):
-        """
-        Initializes LLM inference model (either API-based or local).
-        :param mistral_api: Whether to use Mistral API instead of local model.
-        :param model_name: Hugging Face model identifier.
-        :param model_dir: Directory for local models.
-        """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_dir = model_dir
-        self.model_name = model_name
-        self.mistral_api = mistral_api
-        self.mistral_model = "ministral-3b-latest"
+    """
+    Abstract class for agent inference
+    """
 
-        if mistral_api:
-            # 🔹 Initialize API client
-            self.api_key = os.environ.get("mistral_token", None)
-            if not self.api_key:
-                raise ValueError(
-                    "Mistral API key missing! Set 'mistral_token' in environment variables.")
-            self.client = Mistral(api_key=self.api_key)
-        else:
-            # 🔹 Load local model
-            os.makedirs(self.model_dir, exist_ok=True)
-            model_kwargs = {'device_map': 'auto', 'cache_dir': self.model_dir}
-            if "gemma" in model_name.lower():
-                model_kwargs['quantization_config'] = BitsAndBytesConfig(load_in_8bit=True)
+    def __init__(self):
+        raise NotImplementedError()
 
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=self.model_dir)
-            self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+    def generate(self, instructions_prompt, data_prompt, max_tokens=200):
+        raise NotImplementedError()
 
-    def generate_on_device(self, instructions_prompt, data_prompt, max_tokens=200):
-        """
-        Generates a response locally using the on-device model.
-        :param prompt: Input prompt text.
-        :param max_tokens: Maximum token length for response.
-        :return: Decoded response string.
-        """
-        prompt = self.format_prompt(instructions_prompt, data_prompt)
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        outputs = self.model.generate(
-            **inputs, max_new_tokens=max_tokens, do_sample=False, temperature=0, top_p=1, top_k=0, use_cache=True
-        )
-        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        # Free memory
-        del inputs, outputs
-        torch.cuda.empty_cache()
-        gc.collect()
-
-        return response
-
-    def generate_via_api(self, instructions_prompt, data_prompt, max_tokens=200):
-        """
-        Generates a response via Mistral API.
-        :param prompt: Input text prompt.
-        :param max_tokens: Max tokens for response.
-        :return: API response string.
-        """
-        data_prompt_enriched = f"[Description]{data_prompt}[EndDescription][Response]"
+    def format_prompt(self, instructions_prompt, data_prompt):
+        """Format the instruction prompt and data prompt into a message list."""
+        data_prompt_enriched = f"[Description]{data_prompt}[EndDescription]"
         messages = [
             {
                 "role": "system",
@@ -78,50 +32,107 @@ class AgentInference:
                 "content": data_prompt_enriched,
             }
         ]
+
+        return messages
+
+
+class DeviceAgentInference(AgentInference):
+    """
+    AgnetInference class that does LLM inference locally
+    """
+
+    def __init__(self, model_name="google/gemma-2-2b-it", model_dir="llms"):
+        """
+        Initializes LLM inference model (either API-based or local).
+        :param mistral_api: Whether to use Mistral API instead of local model.
+        :param model_name: Hugging Face model identifier.
+        :param model_dir: Directory for local models.
+        """
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_dir = model_dir
+        self.model_name = model_name
+
+        # 🔹 Load local model
+        os.makedirs(self.model_dir, exist_ok=True)
+        model_kwargs = {'cache_dir': self.model_dir}
+
+        if "gemma" or 'llama' in model_name.lower():
+            model_kwargs['quantization_config'] = BitsAndBytesConfig(load_in_8bit=True)
+
+        self.pipeline = pipeline("text-generation", model=model_name, model_kwargs=model_kwargs)
+
+    def format_prompt_gemma(self, instructions_prompt, data_prompt):
+        """
+        Because Gemma 2 models don't have a system role, we need to format the prompt
+        differently. We will only have the user use messages.
+        """
+        data_prompt_enriched = f"[Description]{data_prompt}[EndDescription][Response]"
+        messages = [
+            {
+                "role": "user",
+                "content": instructions_prompt + '\n' + data_prompt_enriched,
+            }
+        ]
+        return messages
+
+    def generate(self, instructions_prompt, data_prompt, max_tokens=200):
+        """
+        Generates a response locally using the on-device model.
+        :param prompt: Input prompt text.
+        :param max_tokens: Maximum token length for response.
+        :return: Decoded response string.
+        """
+
+        # Format our messages to feed into the pipeline
+        messages = self.format_prompt(instructions_prompt, data_prompt) if 'gemma' not in \
+            self.model_name else self.format_prompt_gemma(instructions_prompt, data_prompt)
+
+        response = self.pipeline(messages, max_new_tokens=max_tokens, do_sample=False)
+
+        # Format our response
+        return response[0]['generated_text'][-1]['content']
+
+
+class ApiAgentInference(AgentInference):
+    """
+    AgentInference class that does inference via an API
+    """
+
+    def __init__(self, model_name: str = "ministral-3b-latest"):
+        self.mistral_model = model_name
+
+        # Token will be in your environment variables
+        self.api_key = os.environ.get("mistral_token", None)
+        if not self.api_key:
+            raise ValueError(
+                "Mistral API key missing! Set 'mistral_token' in environment variables.")
+        self.client = Mistral(api_key=self.api_key)
+
+        try:
+            self.client.chat.complete(
+                model=self.mistral_model, messages=[{
+                    "role": "user",
+                    "content": "This is a test message"
+                }], max_tokens=1
+            )
+
+        except Exception as e:
+            print("Could not create inference class properly")
+            raise e
+
+    def generate(self, instructions_prompt, data_prompt, max_tokens=200):
+        """
+        Generates a response via Mistral API.
+        :param prompt: Input text prompt.
+        :param max_tokens: Max tokens for response.
+        :return: API response string.
+        """
+        messages = self.format_prompt(instructions_prompt, data_prompt)
         response = self.client.chat.complete(
             model=self.mistral_model, messages=messages, max_tokens=max_tokens,
             temperature=.01, n=1)
-        return response.choices[0].message.content.strip()  # Extract response text
 
-    def generate_response(self, instructions_prompt, data_prompt, max_tokens=200):
-        """
-        Generates response using API if enabled, else on-device model.
-        """
-        if self.mistral_api:
-            return self.generate_via_api(instructions_prompt, data_prompt, max_tokens)
-        return self.generate_on_device(instructions_prompt, data_prompt, max_tokens)
-
-    def format_prompt(self, instructions_prompt, data_prompt):
-        """
-        Formats system prompt and user prompt based on model type.
-        """
-        if "gemma" in self.model_name.lower():
-            return f"<system>{instructions_prompt}</system><user>[Description]{data_prompt}[EndDescription]</user><assistant>[Response]"
-        elif "llama" in self.model_name.lower():
-            return f"<bos><start_of_turn>user{instructions_prompt}[Description]{data_prompt}[EndDescription]<end_of_turn>\n<start_of_turn>model"
-        else:
-            raise ValueError("Unsupported model type. Use Gemma or Llama.")
-
-    def generate_with_instructions(self, instructions_prompt, data_prompt, max_tokens=200):
-        """
-        Generates response based on system prompt instructions and user data.
-        """
-        response = self.generate_response(instructions_prompt, data_prompt, max_tokens)
-
-        # Return early if we used the mistral api. No need to process it.
-        if self.mistral_api:
-            return response
-
-        # Regex filtering based on model type
-        regex_map = {
-            "llama": r"\[EndDescription\]assistant([\s\S]*)",
-            "gemma": r"</user><assistant>([\s\S]*)"
-        }
-
-        model_type = "llama" if "llama" in self.model_name.lower() else "gemma"
-        match = re.search(regex_map[model_type], response)
-
-        return match.group(1).replace("/n", '') if match else "Error. Could not properly regex prompt."
+        return response.choices[0].message.content.strip()
 
 
 if __name__ == "__main__":
@@ -193,5 +204,15 @@ Industries
 Financial Services, Investment Management, and Banking
 Referrals increase your chances of interviewing at Wells Fargo by 2x
 See who you know'"""
-    inference = AgentInference()
-    resp = inference.generate_with_instructions(instructions_prompt, data_prompt)
+    start_time = time.time()
+    # inference = DeviceAgentInference(model_name='meta-llama/Llama-3.2-1B-Instruct')
+    inference = ApiAgentInference()
+    middle_time = time.time()
+    resp = inference.generate(instructions_prompt, data_prompt)
+    response_time = time.time()
+
+    inference.mistral_model
+    print(resp)
+    print(f'Took {(middle_time - start_time):.2f} for loading model'
+          f', {(response_time - middle_time):.2f} for generating response'
+          f', {(response_time - start_time):.3f} overall')

@@ -4,7 +4,7 @@ import re
 import fitz
 import docx
 
-from model.AgentInference import AgentInference  # Assuming AgentInference is defined separately
+from model.AgentInference import ApiAgentInference, DeviceAgentInference
 
 
 class Agent:
@@ -22,8 +22,11 @@ class Agent:
         self.root_node = self.config["root_node"]
         self.load_additional_context()
 
-        # This can take a while to load
-        self.agent_inference = AgentInference()
+        inference_method = self.config['InferenceMethod']
+
+        print(self.config[inference_method])
+        # This can take a while to load if in device mode
+        self.agent_inference = eval(inference_method)(**self.config[inference_method])
 
     def load_additional_context(self):
         """Loads additional context specified in the configuration file."""
@@ -157,7 +160,7 @@ class Agent:
             ])
             enriched_description = context_block + "\n" + enriched_description
 
-        llm_response = self.agent_inference.generate_with_instructions(
+        llm_response = self.agent_inference.generate(
             instruction_text, enriched_description)
 
         parsed_data = self._extract_data(llm_response, question_data["return_payload"])
@@ -234,7 +237,7 @@ if __name__ == "__main__":
     parsed_results = agent.ask_questions(
         """
         About the job
-You could be a data scientist anywhere. Why us?
+You could be a anywhere. Why us?
 
 Join a pre-IPO startup with capital, traction and runway ($240M funded | 60X revenue growth in 5 years | $2T market size)
 Report directly to our Director of BizOps & Analytics, Qingdi Huang (Ex-Bain)
