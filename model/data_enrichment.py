@@ -119,8 +119,7 @@ def eval_on_loop(config: dict = None,
 
     if not db_handler:
         # Initialize components with config if necessary
-        db_handler = DataBaseHandler(json.loads(os.environ.get('DataBaseAuth', '{}')),
-                                     pool_size=len(config['scraper_config']['classes'].keys()))
+        db_handler = DataBaseHandler()
 
     if not description_eval:
         description_eval = Agent('model/agent_config.yaml',
@@ -136,4 +135,6 @@ def eval_on_loop(config: dict = None,
 
 
 if __name__ == "__main__":
-    eval_on_loop()
+    config = load_config('../config.yaml')
+    db_handler = DataBaseHandler('../database.db')
+    # eval_on_loop(config=config, db_handler=db_handler)

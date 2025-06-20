@@ -42,9 +42,12 @@ def load_data(view_type, db_handler):
         loaded['id'] = loaded['id'].astype(str)
 
     # Ensure JSON column is parsed correctly
-    loaded["agent_response"] = loaded["agent_response"].apply(
-        lambda x: json.loads(x) if pd.notna(x) else {})
+    # loaded["agent_response"] = loaded["agent_response"].apply(
+    #    lambda x: json.loads(x) if isinstance(x, str) and pd.notna(x) else {}
+    # )
 
+    loaded["agent_response"] = [json.loads(row) if row is not None else {}
+                                for row in loaded["agent_response"]]
     if view_type == "View Jobs":
         json_expanded = loaded["agent_response"].apply(
             lambda data: {key: data[key]["response"] for key in data if "response" in data[key]})
@@ -125,8 +128,7 @@ def filter_job_postings(db_handler: DataBaseHandler = None):
     """Streamlit function to filter and view job postings."""
     # If no DB handler is provided, create one using environment authentication
     if db_handler is None:
-        db_auth = json.loads(os.environ.get('DataBaseAuth', '{}'))
-        db_handler = DataBaseHandler(db_auth)
+        db_handler = DataBaseHandler()
 
     st.title("Job Postings Viewer")
 
@@ -252,4 +254,6 @@ def filter_job_postings(db_handler: DataBaseHandler = None):
 
 if __name__ == "__main__":
     # This allows you to run this module directly as a Streamlit app.
-    filter_job_postings()
+    # filter_job_postings()
+    db_handler = DataBaseHandler('../database.db')
+    load_data("View Jobs", db_handler)

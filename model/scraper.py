@@ -12,6 +12,7 @@ import pandas as pd
 import yaml
 import os
 import json
+# import threading
 
 
 # Common webscraper functions
@@ -19,9 +20,23 @@ class BaseScraper:
 
     def __init__(self, db_handler: DataBaseHandler, config: dict):
         options = Options()
-        options.add_argument("--headless")  # Run without UI
+        options.add_argument("--headless")
         options.add_argument("--start-maximized")
-        self.driver = webdriver.Chrome(service=Service(), options=options)
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument(" --no-sandbox")
+
+        # Since we are running chrome on multiple threads, we need to have a unique dir for each id
+        # thread_id = threading.get_ident()
+        # options.add_argument(f"--user-data-dir=chrome-user-data-{thread_id}")
+
+        # Set our binary location from our docker container, temporarily create own
+        # options.binary_location = "google-chrome"
+
+        # Get our service (temporarily create own)
+        # service = Service("chromedriver/chromedriver")
+        service = Service()
+
+        self.driver = webdriver.Chrome(service=service, options=options)
         self.db_handler = db_handler
 
         self.config = config

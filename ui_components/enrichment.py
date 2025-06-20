@@ -19,11 +19,8 @@ eval_running_flag = False
 
 def get_db_handler_and_config():
     """Helper function to initialize and return a DB handler and configuration."""
-    db_auth = json.loads(os.environ.get('DataBaseAuth', '{}'))
-    config = load_config()  # load_config is defined in your main module.
-    # Set pool size to the number of scraper classes or another appropriate value.
-    pool_size = len(config.get('scraper_config', {}).get('classes', {}).keys())
-    db_handler = DataBaseHandler(db_auth, pool_size=pool_size)
+    config = load_config()
+    db_handler = DataBaseHandler()
     return db_handler, config
 
 
@@ -73,7 +70,7 @@ def start_scrapers():
         def scrapers_wrapper():
             run_scrapers(config, db_handler)  # 🔹 Runs once, no loop
             message_queue.put("Scrapers completed.")
-            st.session_state.scrapers_running = False  # Mark as stopped
+            # st.session_state.scrapers_running = False  # Mark as stopped
 
         thread = threading.Thread(target=scrapers_wrapper, daemon=True)
         thread.start()
@@ -90,7 +87,7 @@ def start_process_jobs():
         def process_jobs_wrapper():
             process_unprocessed_jobs(agent, db_handler)  # 🔹 Runs once, no loop
             message_queue.put("Processing jobs completed.")
-            st.session_state.process_jobs_running = False  # Mark as stopped
+            # st.session_state.process_jobs_running = False  # Mark as stopped
 
         thread = threading.Thread(target=process_jobs_wrapper, daemon=True)
         thread.start()

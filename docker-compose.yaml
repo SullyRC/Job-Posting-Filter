@@ -1,0 +1,13 @@
+services:
+  streamlit:
+    image: streamlit-app
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./database.db:/app/database.db
+      - ./LLMs:/app/LLMs
+      - ./config.yaml:/app/config.yaml
+    environment:
+        # Set environment variables here
+      - mistral_token=""

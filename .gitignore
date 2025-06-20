@@ -1,2 +1,5 @@
 .spyproject
 llms
+database.db
+model/__pycache__/
+__pycache__/
